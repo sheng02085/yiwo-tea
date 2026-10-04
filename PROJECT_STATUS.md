@@ -427,18 +427,18 @@ AI 問答提供動態建議按鈕。
 ## 品牌形象片（2026-10-04）
 
 * 位置：品牌故事頁，標題卡片「一握茶研所／一握佛手，一茶一故事」正下方、「我們在做什麼」上方（`#brand-film`，進場延遲 360ms）
-* 16:9 黑底框＋淡金細框，下方小字「品牌形象片」；刻意不放在 liquid-glass（backdrop-filter）卡片裡，避免 iOS 影片圖層重繪問題
-* 設定在 JS 常數 `BRAND_FILM = { src, poster }`：
-  * `src`：mp4 路徑（目前 `videos/brand-film.mp4`）或 YouTube 連結（自動改用 youtube-nocookie 內嵌）；留空就不顯示
-  * `poster`：封面圖（目前 `videos/brand-film-poster.jpg`），iPhone 不會自動顯示第一格，建議一定要放
-  * 換影片時改 `BRAND_FILM_V`（版本號，避免快取舊檔）
-* 不自動播放，`controls` + `playsinline` + `preload="metadata"`
-* 影片讀不到就整塊收起；測試版 `test/videos/` 找不到會改讀正式版 `../videos/`（`imgAltSrc()` 已擴充到 `videos/`）
-* 換頁時（`showView()`）會暫停不在目標頁的所有 `<video>`（品牌形象片與茶款理念影片都適用）
-* 影片來源：`index-17.html` 為 HyperFrames 合成（1920×1080、30 秒）。目前上線的 mp4 為 **60fps**（以 GSAP 時間軸逐格 seek 錄製，1800 格），約 4 MB
-* 編碼設定（手機相容）：H.264 High、**Level 4.2**、每 1 秒一個關鍵格（`-g 60 -keyint_min 60 -sc_threshold 0`）、`-maxrate 6M -bufsize 6M`、`-movflags +faststart`。第一版只有 8 個關鍵格、Level 5.0，起播與拖曳較慢，已淘汰
-* 目前 `BRAND_FILM_V = '?v=20261004b'`
-* **影片播放時暫停流動底色**（2026-10-04）：`html`／`body` 的 `fluidBackground` 是 background-position 動畫，每格重畫整頁，加上 header 的 backdrop-filter，會讓影片播放一頓一頓（Android 平板 Chrome 實測）。`initVideoBgPause()` 監聽所有 `<video>` 的 play／pause／ended（捕獲階段），播放中替 `<html>` 加 `video-playing`，CSS 讓 `html`、`body`、`.fluid-bg` 的動畫 `animation-play-state: paused`；暫停或播完就恢復。適用品牌形象片與茶款理念影片
+* 16:9 黑底框＋淡金細框，下方小字「品牌形象片」；刻意不放在 liquid-glass（backdrop-filter）卡片裡
+* **目前來源：Cloudflare R2 + Worker**（2026-10-04 定案）`https://video.arp21760208.workers.dev/brand-film.mp4`（60fps、Level 4.2、約 4 MB），用網站自己的 `<video>` 播放
+  * Worker「video」在 Cloudflare 後台手動建立，程式為 `film-worker.js`：R2 binding 變數名稱 `FILMS`，只開放 bucket 最外層的 `.mp4／.jpg／.webp`（物件名稱不能有 `videos/` 這種資料夾），支援 Range（206）、`cache-control: public, max-age=86400`
+  * 用 wrangler 上傳物件一定要加 `--remote`；不要對這個 Worker 執行 `wrangler deploy`（會蓋掉後台設定）
+  * 免費額度：R2 每月 10 GB 儲存、1,000 萬次讀取、流量免費；Workers 免費版每日 10 萬次請求，網站用量遠低於上限。不使用 r2.dev 網址（官方標示非正式用途、會限速）
+  * 封面圖 `brand-film-poster.jpg` 仍放 repo 的 `videos/`（R2 裡沒有）
+  * 換影片：上傳到 R2 覆蓋 `brand-film.mp4`，再改 `BRAND_FILM_V`（目前 `'?v=20261004d'`）
+  * 曾試過 YouTube（`https://youtu.be/UV4oGaUC9Uo`）：內嵌只給低畫質、看不到 60fps，且有 YouTube 標題列與標誌，不專業；jsDelivr 只是過渡，均已撤回
+  * `BRAND_FILM.src` 仍支援填 YouTube 網址（自動改用 youtube-nocookie 內嵌，`enablejsapi=1`）或相對路徑 mp4；留空就不顯示
+* 換頁時（`showView()`）會暫停不在目標頁的 `<video>`，以及 YouTube iframe（postMessage `pauseVideo`，所以品牌形象片與茶款理念影片的 YouTube 內嵌都加了 `enablejsapi=1`）
+* **為什麼不用 GitHub 上的 mp4**：GitHub Pages 串流影片到台灣非常慢（實測第一次播放等待緩衝 7 次、共約 100 秒，連背景整支預先下載都沒完成；第二次有快取才順），與網速、編碼、頁面效果無關。曾嘗試暫停流動底色、關掉毛玻璃、預先下載成 blob，都已撤回。網站影片不要直接從 GitHub Pages 串流
+* 影片原始檔：`index-17.html` 為 HyperFrames 合成（1920×1080、30 秒），以 GSAP 時間軸逐格 seek 錄製成 60fps mp4（H.264 High、Level 4.2、每 1 秒一個關鍵格、`-movflags +faststart`，約 4 MB）
 
 ## AI 茶伴首頁文案
 
