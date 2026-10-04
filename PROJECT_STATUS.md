@@ -181,6 +181,14 @@ summary_large_image
 一握茶研所｜一握佛手，一茶一故事
 ```
 
+## 流量分析（2026-10-05）
+
+* 使用 Cloudflare Web Analytics（與 Worker 同一個 Cloudflare 帳號）
+* 監測網域：`sheng02085.github.io`，以路徑區分正式版與 `test/`
+* beacon script 放在 `index.html` 的 `</body>` 前，不使用 cookie
+* token：`890b62efb7ae4901b90310d63291600d`
+* `test/` 若要分開統計，需同樣加入此 script
+
 ---
 
 # 5. 網站整體結構
