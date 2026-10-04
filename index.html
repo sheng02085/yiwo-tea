@@ -49,6 +49,10 @@ body, html {
    讓它們的起始顏色落在設定好的位置；html.bg-hold 由 <head> 的小 script 加上、JS 拿掉 */
 html.bg-hold .fluid-bg { animation-play-state: paused !important; }
 @keyframes fluidBackground { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+/* 影片播放中：暫停整頁與 .fluid-bg 的流動底色。background-position 動畫每一格都要重畫整頁，
+   再加上 header 的 backdrop-filter 要跟著重算模糊，會和影片解碼搶效能，造成播放一頓一頓（Android 平板實測）。
+   暫停後只是底色停在當下的位置，不會跳色；影片暫停或播完就恢復流動。由 initVideoBgPause() 切換 */
+html.video-playing, html.video-playing body, html.video-playing .fluid-bg { animation-play-state: paused !important; }
 
 .liquid-glass {
   background: rgba(255,255,255,0.08); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%);
@@ -1302,6 +1306,15 @@ function initBrandFilm() {
   wrap.classList.remove('hidden');
 }
 initBrandFilm();
+// 任何 <video> 播放時暫停流動底色（見 CSS html.video-playing）；play/pause 事件不會冒泡，所以用捕獲階段監聽
+function initVideoBgPause() {
+  const sync = () => {
+    const playing = [...document.querySelectorAll('video')].some(v => !v.paused && !v.ended);
+    document.documentElement.classList.toggle('video-playing', playing);
+  };
+  ['play', 'playing', 'pause', 'ended', 'emptied'].forEach(ev => document.addEventListener(ev, sync, true));
+}
+initVideoBgPause();
 // 茶罐圖版本號：正面圖與序列圖一定要同一版，換圖時兩者一起更新並改這個號碼（避免瀏覽器快取到不同版本）
 const TIN_V = '?v=20261001';
 const tin360Src = (id) => `${IMG_BASE}tin-${id}-72.webp${TIN_V}`;
@@ -2306,7 +2319,7 @@ const STAMP_DEFS = [
   { id: 'quiz',    name: '茶知識問答', icon: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6"/><path d="M12 17.5v.01"/>' }
 ];
 // 製茶證書內文：彈窗與證書圖片共用，改字只改這裡
-const CERT_BODY = ['茲證明你已完成一握體驗館三項體驗：', '製茶工序、DIY 調茶與茶知識問答，', '特頒此證，以茶為記。'];
+const CERT_BODY = ['從製茶、調茶到品茶', '親手完成一段茶的旅程', '願這一握茶香，陪你慢下腳步'];
 let stamps = [];
 // 集章只保留在這次瀏覽期間：重新整理還在，關掉分頁再開就從零開始
 try { localStorage.removeItem('yw-stamps'); } catch (e) {}
