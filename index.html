@@ -273,6 +273,24 @@ html.bg-hold .fluid-bg { animation-play-state: paused !important; }
 .lab-piece.floating .lab-bob { animation: bitBob 2.6s ease-in-out infinite; }
 @keyframes rippleOut { 0% { opacity: .8; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.8); } }
 .lab-ripple { transform-box: fill-box; transform-origin: center; animation: rippleOut .65s ease-out forwards; }
+/* ===== 第二關 DIY：沖泡細節 =====
+   只動 transform／opacity，而且都是播完就停（沒有新增無限循環）。
+   茶色從杯底往上暈開；倒水時水面有漣漪與小氣泡；
+   收水後滴兩滴；熱氣往上飄幾輪後留下淡淡一縷 */
+.lab-plume { opacity: 0; transform-box: fill-box; transform-origin: center; animation: labPlume 3.4s cubic-bezier(.25,.6,.4,1) var(--d) both; }
+@keyframes labPlume { 0% { opacity: 0; transform: translateY(0) scale(.35); } 22% { opacity: .8; } 100% { opacity: 0; transform: translateY(-24px) scale(2); } }
+.lab-bubble { animation: labBubble .7s ease-out forwards; }
+@keyframes labBubble { from { opacity: .85; transform: translateY(0); } to { opacity: 0; transform: translateY(-3px); } }
+.lab-drip { animation: labDrip .42s cubic-bezier(.55,0,1,.45) forwards; }
+@keyframes labDrip { 0% { opacity: 0; transform: translateY(0) scaleY(.6); } 15%, 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(17px) scaleY(1.2); } }
+#lab-steam path { transform-box: fill-box; transform-origin: 50% 100%; }
+#lab-steam.steaming path { animation: labSteamRise 2.6s ease-out var(--d) 3 both, labSteamRest 1.4s ease var(--d2) forwards; }
+@keyframes labSteamRise { 0% { opacity: 0; transform: translateY(3px) scaleY(.7); } 30% { opacity: .8; } 100% { opacity: 0; transform: translateY(-8px) scaleY(1.15); } }
+@keyframes labSteamRest { from { opacity: 0; transform: translateY(2px); } to { opacity: .4; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  #lab-cup.pouring .pour-flow, .lab-piece.floating .lab-bob { animation: none; }
+  #lab-steam.steaming path { animation: none; opacity: .4; }
+}
 
 @keyframes leafPop { 0% { transform: scale(1); } 40% { transform: scale(1.12) rotate(-4deg); } 100% { transform: scale(1); } }
 .leaf-pop { animation: leafPop .35s ease; }
@@ -320,7 +338,9 @@ html.bg-hold .fluid-bg { animation-play-state: paused !important; }
   #lab-modal.ap .modal-card, #lab-modal.ap .ap-item, #lab-modal.ap .ap-corner { animation: apFadeIn .2s ease both; }
   #lab-modal.ap.closing .modal-card { animation: apFadeOut .2s ease both; }
 }
-.pour-flow { stroke-dasharray: 4 7; animation: pourFlow .35s linear infinite; }
+.pour-flow { stroke-dasharray: 4 7; }
+/* 水柱流動只在倒水時播放，倒完就停，不在背景一直跑 */
+#lab-cup.pouring .pour-flow { animation: pourFlow .35s linear infinite; }
 @keyframes pourFlow { to { stroke-dashoffset: -11; } }
 /* 關卡內容滑入 */
 @keyframes stInRight { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
@@ -820,31 +840,38 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
           <span class="text-[10px] font-mono bg-tea-gold text-tea-dark font-bold px-2 py-1 rounded">品牌故事</span>
           <h2 class="font-serif text-3xl lg:text-4xl font-bold mt-4">一握茶研所</h2>
           <p class="text-sm text-white/60 mt-3">一握佛手，一茶一故事</p>
-          <!-- 品牌形象影片：由 BRAND_VIDEO 設定，留空則不顯示 -->
-          <div id="brand-video" class="hidden mt-5 max-w-3xl mx-auto"></div>
         </div>
 
-        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:420ms">
+        <!-- 品牌形象片：影片路徑在 JS 的 BRAND_FILM 設定；沒設定或檔案讀不到就整塊不顯示。
+             刻意不放在 liquid-glass（backdrop-filter）裡，避免 iOS 上影片圖層重繪異常 -->
+        <div id="brand-film" class="hidden fade-in-block" style="animation-delay:360ms">
+          <div id="brand-film-box" class="relative w-full rounded-2xl overflow-hidden bg-black" style="aspect-ratio:16/9; border:1px solid rgba(212,175,55,.22)">
+            <video id="brand-film-video" class="absolute inset-0 w-full h-full" style="object-fit:contain" controls playsinline webkit-playsinline preload="metadata" aria-label="一握茶研所品牌形象片"></video>
+          </div>
+          <p class="text-[11px] text-white/45 text-center mt-2 tracking-widest">品牌形象片</p>
+        </div>
+
+        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:720ms">
           <h3 class="text-tea-gold font-bold text-sm lg:text-base mb-2"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-cup"/></svg></span>我們在做什麼</h3>
           <p class="text-xs lg:text-sm text-white/70 leading-relaxed">一握茶研所以臺灣特色「佛手烏龍茶」為核心，結合藥食同源素材與現代生活情境，開發「一握」系列茶飲。我們希望讓茶不只是一種飲品，而是陪伴日常生活的一段小時光。</p>
         </div>
 
-        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:840ms">
+        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:1080ms">
           <h3 class="text-tea-gold font-bold text-sm lg:text-base mb-2"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-hands"/></svg></span>為什麼是「一握」</h3>
           <p class="text-xs lg:text-sm text-white/70 leading-relaxed">一握，是雙手捧起一杯茶的溫度，也是在忙碌生活裡，留給自己的一小段時間。不需要特別的茶具或場合，只要一杯茶，就能讓自己停下來喘口氣。</p>
         </div>
 
-        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:1260ms">
+        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:1440ms">
           <h3 class="text-tea-gold font-bold text-sm lg:text-base mb-2"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-leaf"/></svg></span>依生活狀態選茶</h3>
           <p class="text-xs lg:text-sm text-white/70 leading-relaxed">不同於傳統以單一功效分類的養生茶，我們把茶飲與現代人的生活狀態連結，依照女性日常、外食聚餐、秋冬暖飲等情境設計茶款。每一款茶都有自己的風味與故事，讓每個人在不同的生活狀態中，都能找到屬於自己的那一握。</p>
         </div>
 
-        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:1680ms">
+        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:1800ms">
           <h3 class="text-tea-gold font-bold text-sm lg:text-base mb-2"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-phone"/></svg></span>一茶一故事，一掃就懂</h3>
           <p class="text-xs lg:text-sm text-white/70 leading-relaxed">每款茶都附有專屬 QR Code，掃描後就能了解茶款理念、配方與飲用資訊；不知道喝哪一杯時，也可以和 AI 茶伴聊聊今天的心情，讓它幫你挑一款。</p>
         </div>
 
-        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:2100ms">
+        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:2160ms">
           <h3 class="text-tea-gold font-bold text-sm lg:text-base mb-2"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-cycle"/></svg></span>永續的一杯茶</h3>
           <p class="text-xs lg:text-sm text-white/70 leading-relaxed">我們將減量包裝、可回收材質與 QR Code 數位資訊融入產品設計，用數位內容取代紙本說明，讓品嚐一杯茶的同時，也對環境溫柔一點。</p>
         </div>
@@ -888,7 +915,13 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
                 <!-- 杯子：手機在上面，平板／電腦在右邊 -->
                 <div class="md:order-2 flex flex-col items-center pt-8">
                 <svg id="lab-cup" viewBox="2 0 100 110" class="w-40 h-44 md:w-52 md:h-56" aria-hidden="true" style="overflow:visible">
-                  <defs><clipPath id="lab-clip"><path d="M19.2 22 27.2 98Q28.3 104.3 35 104.3H69Q75.7 104.3 76.8 98L84.8 22z"/></clipPath></defs>
+                  <defs>
+                    <clipPath id="lab-clip"><path d="M19.2 22 27.2 98Q28.3 104.3 35 104.3H69Q75.7 104.3 76.8 98L84.8 22z"/></clipPath>
+                    <!-- 茶湯立體感：水面一點亮、杯底比較深 -->
+                    <linearGradient id="lab-liq-shade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".12" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".26"/></linearGradient>
+                    <!-- 茶色從茶葉暈開用的柔邊色團（顏色由 labUpdate() 跟著茶湯顏色設定） -->
+                    <radialGradient id="lab-plume-grad"><stop class="lab-plume-stop" offset="0" stop-color="#6B3F10" stop-opacity=".8"/><stop class="lab-plume-stop" offset="1" stop-color="#6B3F10" stop-opacity="0"/></radialGradient>
+                  </defs>
                   <!-- 水柱分兩段：杯口以上這段照常畫；杯子裡那段放進杯子的裁切範圍、畫在茶湯下面，
                        所以只會在杯內出現，而且碰到茶湯水面就被蓋住，不會穿出杯底 -->
                   <g id="lab-stream" class="lab-stream" style="opacity:0; transition:opacity .3s ease" fill="none" stroke-linecap="round">
@@ -896,6 +929,7 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
                     <path class="pour-flow" d="M64.9 1.6Q56 6 53.5 20L53.5 23" stroke="rgba(255,255,255,.75)" stroke-width="1.3"/>
                   </g>
                   <g id="lab-kettle" style="opacity:0; transform:translate(16px,-16px); transition:transform .5s cubic-bezier(.2,.8,.3,1), opacity .4s ease">
+                   <g id="lab-kettle-tilt" style="transform-box:fill-box; transform-origin:50% 50%; transform:rotate(18deg); transition:transform .45s cubic-bezier(.3,.7,.3,1)">
                     <g transform="translate(84 -6) rotate(-35) scale(.85)" fill="none" stroke="rgba(255,255,255,.88)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M-14 -2c0-4 3-7 7-7h14c4 0 7 3 7 7v6c0 8-6 13-14 13s-14-5-14-13z" fill="rgba(212,175,55,.35)"/>
                       <path d="M-8 -9a8 5 0 0 1 16 0z" fill="rgba(212,175,55,.35)"/>
@@ -904,20 +938,34 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
                       <path d="M-13 6-22-6c-1-1.5-3-.8-2.6 1 1.8 6 4.8 10 9.6 12"/>
                       <image x="-7" y="-3" width="14" height="14" preserveAspectRatio="xMidYMid meet" href="data:image/png;base64,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"/>
                     </g>
+                   </g>
                   </g>
+                  <!-- 收水後從壺嘴滴下的水滴 -->
+                  <g id="lab-drips"></g>
                   <g id="lab-steam" style="opacity:0; transition:opacity 1s ease">
-                    <path d="M42 16c-2.4-2.4-2.4-5.2 0-7.8" stroke="rgba(255,255,255,.5)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-                    <path d="M52 13c-2.4-2.4-2.4-5.2 0-7.8" stroke="rgba(255,255,255,.5)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-                    <path d="M62 16c-2.4-2.4-2.4-5.2 0-7.8" stroke="rgba(255,255,255,.5)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+                    <path style="--d:0s; --d2:7.8s" d="M42 16c-2.4-2.4-2.4-5.2 0-7.8" stroke="rgba(255,255,255,.5)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+                    <path style="--d:.7s; --d2:8.5s" d="M52 13c-2.4-2.4-2.4-5.2 0-7.8" stroke="rgba(255,255,255,.5)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+                    <path style="--d:.35s; --d2:8.15s" d="M62 16c-2.4-2.4-2.4-5.2 0-7.8" stroke="rgba(255,255,255,.5)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
                   </g>
                   <g clip-path="url(#lab-clip)">
                     <g class="lab-stream" style="opacity:0; transition:opacity .3s ease" fill="none" stroke-linecap="butt">
                       <path d="M53.5 21V104.3" stroke="rgba(255,236,200,.55)" stroke-width="3.2"/>
                       <path class="pour-flow" d="M53.5 21V104.3" stroke="rgba(255,255,255,.75)" stroke-width="1.3"/>
                     </g>
-                    <rect id="lab-liquid" x="0" y="26" width="104" height="78.3" fill="#C8872E"
-                      style="transform-box:fill-box; transform-origin:bottom; transform:scaleY(0.1); transition:transform 2.4s cubic-bezier(.45,0,.2,1), fill .6s ease"/>
+                    <!-- 茶湯三層：剛注入的淡色熱水（不透明，蓋住杯內水柱）→ 茶色慢慢浸出 → 上亮下深的立體感 -->
+                    <rect id="lab-water" class="lab-liq" x="0" y="26" width="104" height="78.3" fill="#E6CF9A"
+                      style="transform-box:fill-box; transform-origin:bottom; transform:scaleY(0.1); transition:fill .6s ease"/>
+                    <rect id="lab-liquid" class="lab-liq" x="0" y="26" width="104" height="78.3" fill="#C8872E"
+                      style="transform-box:fill-box; transform-origin:bottom; transform:scaleY(0.1); transition:fill .6s ease"/>
+                    <rect id="lab-liquid-shade" class="lab-liq" x="0" y="26" width="104" height="78.3" fill="url(#lab-liq-shade)"
+                      style="transform-box:fill-box; transform-origin:bottom; transform:scaleY(0.1)"/>
+                    <g id="lab-plumes"></g>
                     <g id="lab-bits"></g>
+                    <!-- 水面亮線：跟著茶湯水位一起上升 -->
+                    <g id="lab-surface" style="opacity:0; transform:translateY(104.3px)">
+                      <rect x="0" y="-.7" width="104" height="1.5" fill="rgba(255,244,214,.4)"/>
+                      <rect x="0" y=".8" width="104" height="2.6" fill="rgba(255,244,214,.1)"/>
+                    </g>
                     <g id="lab-ripples"></g>
                   </g>
                   <path d="M18 22 26 98q1.2 7.5 9 7.5h34q7.8 0 9-7.5L86 22" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2.4" stroke-linejoin="round"/>
@@ -1001,8 +1049,6 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
    Cloudflare 後台的加密變數裡，安全多了）
    ========================================================= */
 const WORKER_URL = "https://tea.arp21760208.workers.dev/";
-// 品牌形象影片（品牌故事頁標題卡下方）：填 mp4 路徑（例如 "videos/brand.mp4"）或 YouTube 連結，留空則不顯示
-const BRAND_VIDEO = "";
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 /* =========================================================
@@ -1183,31 +1229,18 @@ const DEFAULT_BG = "linear-gradient(-45deg, #0A140E, #1C3A27, #664d14, #12261A)"
 
 // 茶款理念影片：TEA_DB 裡填了 video 就在「茶款理念」卡片最上方顯示影片，沒填就不顯示
 // 支援兩種：放在 GitHub 上的 mp4 檔，或 YouTube 連結
-// 共用影片產生器：茶款理念影片與品牌形象影片都用這個
-function mediaEmbed(src, title, extraClass) {
-  const v = (src || '').trim();
+function storyMedia(tea) {
+  const v = (tea.video || '').trim();
   if (!v) return '';
-  const cls = extraClass || '';
   const yt = v.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);
   if (yt) {
-    return `<div class="relative w-full rounded-xl overflow-hidden bg-black ${cls}" style="aspect-ratio:16/9">
+    return `<div class="relative w-full rounded-xl overflow-hidden bg-black mb-3" style="aspect-ratio:16/9">
       <iframe class="absolute inset-0 w-full h-full" src="https://www.youtube-nocookie.com/embed/${yt[1]}?playsinline=1&rel=0"
-        title="${title}" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        title="${tea.name} 茶款理念" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     </div>`;
   }
-  return `<video class="w-full rounded-xl bg-black ${cls}" src="${v}" controls playsinline preload="metadata"></video>`;
+  return `<video class="w-full rounded-xl bg-black mb-3" src="${v}" controls playsinline preload="metadata"></video>`;
 }
-function storyMedia(tea) {
-  return mediaEmbed(tea.video, `${tea.name} 茶款理念`, 'mb-3');
-}
-// 品牌形象影片：BRAND_VIDEO 有填才顯示
-(function renderBrandVideo() {
-  const box = document.getElementById('brand-video');
-  const html = mediaEmbed(BRAND_VIDEO, '一握茶研所 品牌形象影片', '');
-  if (!box || !html) return;
-  box.innerHTML = html;
-  box.classList.remove('hidden');
-})();
 
 // 茶款頁 360° 茶罐：images/tin-<茶款id>-72.webp 為 12×6、共 72 格的旋轉序列圖（每格 5°）
 // 單格尺寸由圖片實際寬高自動計算，之後換成更高解析度的序列圖不需改程式
@@ -1218,12 +1251,57 @@ const TIN360_COLS = 12, TIN360_ROWS = 6;
 // 所以 test/images/ 只需要放測試用的新圖
 const IMG_BASE = 'images/';
 const IN_TEST = /\/test\//.test(location.pathname);
-function imgAltSrc(u) { return IN_TEST && u.startsWith('images/') ? '../' + u : null; }
+function imgAltSrc(u) { return IN_TEST && /^(images|videos)\//.test(u) ? '../' + u : null; }
 // <img onerror>：先改讀正式版，再失敗才交給 onFail（例如移除預覽圖）
 function imgFallback(el, onFail) {
   const alt = !el.dataset.alt && imgAltSrc(el.getAttribute('src'));
   if (alt) { el.dataset.alt = '1'; el.src = alt; } else if (onFail) onFail(el);
 }
+
+// 品牌形象片（品牌故事頁標題下方）
+// src：mp4 路徑（建議放 videos/）或 YouTube 連結；留空則不顯示
+// poster：封面圖（iPhone 不會自動顯示影片第一格，沒有封面會是一片黑），可留空
+// 換影片時改 BRAND_FILM_V，避免瀏覽器快取到舊檔
+const BRAND_FILM = { src: 'videos/brand-film.mp4', poster: 'videos/brand-film-poster.jpg' };
+const BRAND_FILM_V = '?v=20261004';
+function initBrandFilm() {
+  const wrap = document.getElementById('brand-film');
+  const box = document.getElementById('brand-film-box');
+  const video = document.getElementById('brand-film-video');
+  if (!wrap || !video) return;
+  const src = (BRAND_FILM.src || '').trim();
+  if (!src) return;
+  const yt = src.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);
+  if (yt) {
+    video.remove();
+    const f = document.createElement('iframe');
+    f.src = `https://www.youtube-nocookie.com/embed/${yt[1]}?playsinline=1&rel=0`;
+    f.title = '一握茶研所品牌形象片';
+    f.allow = 'accelerometer; encrypted-media; gyroscope; picture-in-picture';
+    f.allowFullscreen = true;
+    f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0';
+    box.appendChild(f);
+    wrap.classList.remove('hidden');
+    return;
+  }
+  // 封面圖：先試讀，讀得到才設定（測試版找不到會改讀正式版）
+  const poster = (BRAND_FILM.poster || '').trim();
+  if (poster) {
+    const probe = new Image();
+    probe.onload = () => { video.poster = probe.src; };
+    probe.onerror = () => { const alt = !probe.dataset.alt && imgAltSrc(poster); if (alt) { probe.dataset.alt = '1'; probe.src = alt + BRAND_FILM_V; } };
+    probe.src = poster + BRAND_FILM_V;
+  }
+  // 影片讀不到：測試版先改讀正式版，再失敗就整塊收起
+  video.addEventListener('error', () => {
+    const alt = !video.dataset.alt && imgAltSrc(src);
+    if (alt) { video.dataset.alt = '1'; video.src = alt + BRAND_FILM_V; }
+    else wrap.classList.add('hidden');
+  });
+  video.src = src + BRAND_FILM_V;
+  wrap.classList.remove('hidden');
+}
+initBrandFilm();
 // 茶罐圖版本號：正面圖與序列圖一定要同一版，換圖時兩者一起更新並改這個號碼（避免瀏覽器快取到不同版本）
 const TIN_V = '?v=20261001';
 const tin360Src = (id) => `${IMG_BASE}tin-${id}-72.webp${TIN_V}`;
@@ -1757,8 +1835,6 @@ function showView(name, fromHistory, restoreY) {
   views.forEach(v => {
     v.classList.remove('active');
     v.classList.remove('node-reveal');
-    // 離開頁面時暫停該頁影片（display:none 不會停止播放，聲音會繼續）
-    if (v !== target) v.querySelectorAll('video').forEach(el => { try { el.pause(); } catch (e) {} });
   });
 
   // 按返回（或瀏覽器前進）回到的頁面：不重播原本逐張的長淡入（會先看到一片空白），
@@ -1784,6 +1860,9 @@ function showView(name, fromHistory, restoreY) {
 
     requestAnimationFrame(() => forceIOSRepaint(target));
   });
+
+  // 離開頁面時暫停播放中的影片（品牌形象片、茶款理念影片），避免換頁後還在出聲
+  document.querySelectorAll('video').forEach(v => { if (!target.contains(v) && !v.paused) v.pause(); });
 
   document.getElementById('back-btn').classList.toggle('hidden', name === 'landing');
   // 回到首頁重播主視覺小動畫；「特色茶飲」直接捲到茶款區時不重播（主視覺會被捲走，重播只會讓圖示動畫空等）
@@ -2226,6 +2305,8 @@ const STAMP_DEFS = [
   { id: 'diy',     name: 'DIY 調茶', icon: '<path d="M5 8h14l-2 12a2 2 0 0 1-2 1.7H9A2 2 0 0 1 7 20z"/><path d="M6 13h12"/><path d="M10 5c-.8-.8-.8-1.7 0-2.5M14 5c-.8-.8-.8-1.7 0-2.5"/>' },
   { id: 'quiz',    name: '茶知識問答', icon: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6"/><path d="M12 17.5v.01"/>' }
 ];
+// 製茶證書內文：彈窗與證書圖片共用，改字只改這裡
+const CERT_BODY = ['茲證明你已完成一握體驗館三項體驗：', '製茶工序、DIY 調茶與茶知識問答，', '特頒此證，以茶為記。'];
 let stamps = [];
 // 集章只保留在這次瀏覽期間：重新整理還在，關掉分頁再開就從零開始
 try { localStorage.removeItem('yw-stamps'); } catch (e) {}
@@ -2257,7 +2338,7 @@ function renderStamps(justGot) {
     cert.innerHTML = `<div class="mt-5 rounded-2xl border border-tea-gold/60 p-5 text-center" style="background:linear-gradient(135deg, rgba(212,175,55,.18), rgba(212,175,55,.04))">
       <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold">CERTIFICATE</div>
       <div class="font-serif text-xl font-bold mt-1">一握體驗館・製茶證書</div>
-      <p class="text-xs text-white/65 mt-2 leading-relaxed">恭喜你完成製茶工序、DIY 調茶與茶知識問答，<br>找到屬於你的那一握。</p>
+      <p class="text-xs text-white/65 mt-2 leading-relaxed">${CERT_BODY.join('<br>')}</p>
       <div class="text-[11px] text-white/40 mt-3">一握茶研所　${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}</div>
       <button onclick="shareCert()" class="mt-4 px-5 py-2 rounded-full text-xs font-bold bg-tea-gold text-tea-dark btn-bounce">儲存證書，分享給朋友吧！</button>
       <div id="cert-msg" class="text-[11px] text-white/50 mt-2 h-4"></div>
@@ -2281,7 +2362,7 @@ function certIcon(ctx, svg, cx, cy, size, color) {
   ctx.restore();
 }
 async function buildCert() {
-  try { await Promise.all([document.fonts.load('700 64px "Noto Serif TC"', '一握體驗館完成證'), document.fonts.load('400 36px "Noto Sans TC"', '恭喜你完成')]); } catch (e) {}
+  try { await Promise.all([document.fonts.load('700 64px "Noto Serif TC"', '一握體驗館完成證'), document.fonts.load('400 36px "Noto Sans TC"', CERT_BODY.join(''))]); } catch (e) {}
   const W = 1080, H = 1350, GOLD = '#D4AF37';
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
@@ -2309,8 +2390,7 @@ async function buildCert() {
     ctx.fillText(d.name, x, 710);
   });
   ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.font = '400 38px "Noto Sans TC", sans-serif';
-  ctx.fillText('恭喜你完成製茶工序、DIY 調茶與茶知識問答，', W / 2, 850);
-  ctx.fillText('找到屬於你的那一握。', W / 2, 910);
+  CERT_BODY.forEach((t, i) => ctx.fillText(t, W / 2, 830 + i * 60));
   const d = new Date();
   ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = '400 32px "Noto Sans TC", sans-serif';
   ctx.fillText(`一握茶研所　${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`, W / 2, 1070);
@@ -2443,7 +2523,7 @@ function labRender() {
     const b = document.createElement('button');
     b.className = 'w-14 h-14 rounded-full flex items-center justify-center border-2 transition-all ' + (on ? '' : 'liquid-glass-dark border-white/20');
     if (on) { b.style.background = g.color + '33'; b.style.borderColor = g.color; }
-    b.innerHTML = labBitSVG(g.id, g.color, 26);
+    b.innerHTML = labBitSVG(g.id, g.color, 34);
     wrap.appendChild(b);
     const label = document.createElement('div');
     label.className = 'text-[11px] ' + (on ? 'font-bold' : 'text-white/60');
@@ -2458,7 +2538,7 @@ function labRender() {
     } else {
       // 不在杯中：可以拖進杯子，也可以點一下（給不方便拖曳的人用）加入
       bindDrag(b, {
-        makeGhost: () => { const d = document.createElement('div'); d.innerHTML = labBitSVG(g.id, g.color, 34); d.style.width = d.style.height = '34px'; return d; },
+        makeGhost: () => { const d = document.createElement('div'); d.innerHTML = labBitSVG(g.id, g.color, 40); d.style.width = d.style.height = '40px'; return d; },
         onStart: () => document.getElementById('lab-cup').classList.add('drop-target-hot'),
         onMove: (x, y) => {
           const cup = document.getElementById('lab-cup').getBoundingClientRect();
@@ -2483,16 +2563,64 @@ function labRender() {
       <div class="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full bg-tea-gold transition-all duration-500" style="width:${Math.min(v[k] / 6, 1) * 100}%"></div></div>
     </div>`).join('');
 }
-// 每種配料的杯中顆粒圖案（不是單純一個點）
+// 顏色深淺：k < 0 往黑色調暗、k > 0 往白色調亮
+function labTone(hex, k) {
+  const a = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  const t = k < 0 ? 0 : 255, w = Math.abs(k);
+  return '#' + a.map(v => Math.round(v * (1 - w) + t * w).toString(16).padStart(2, '0')).join('');
+}
+// 每種配料的圖案：用同色系的深、淺色做出陰影、紋理與亮面（杯中、配料按鈕、拖曳時共用）
 function labBitSVG(id, color, size) {
+  const c = color, d = labTone(color, -0.38), l = labTone(color, 0.32), hi = 'rgba(255,255,255,.5)';
   const shapes = {
-    rose:     `<path d="M12 3c3 1.5 4 4 3 7-2 .7-4-.2-5-2.5" fill="${color}"/><path d="M12 3c-3 1.5-4 4-3 7 2 .7 4-.2 5-2.5" fill="${color}" opacity=".8"/><circle cx="12" cy="8" r="2" fill="${color}"/>`,
-    jujube:   `<ellipse cx="12" cy="12" rx="6" ry="5" fill="${color}"/><path d="M9 12h6M12 9v6" stroke="rgba(0,0,0,.15)" stroke-width="1"/>`,
-    goji:     `<ellipse cx="12" cy="12" rx="4.5" ry="6" fill="${color}"/>`,
-    chenpi:   `<path d="M5 8c6-3 12-1 14 4-6 3-12 1-14-4z" fill="${color}"/><path d="M6 9c5-2 9-.5 11 3" stroke="rgba(0,0,0,.2)" stroke-width="1" fill="none"/>`,
-    hawthorn: `<circle cx="12" cy="12" r="6" fill="${color}"/><circle cx="12" cy="12" r="2" fill="rgba(0,0,0,.2)"/>`,
-    longan:   `<circle cx="12" cy="12" r="6" fill="${color}"/><circle cx="10" cy="10" r="1.6" fill="rgba(255,255,255,.5)"/>`,
-    ginger:   `<path d="M4 14c1-5 5-9 10-9 4 4 1 9-4 10-3 .7-5-.3-6-1z" fill="${color}"/>`
+    // 玫瑰花苞：綠色花萼＋層層花瓣
+    rose: `<path d="M12 4c3.5 2 5.4 5.4 5 9-.4 3.3-2.6 5.4-5 5.4S7.4 16.3 7 13c-.4-3.6 1.5-7 5-9z" fill="${d}"/>
+      <path d="M12.4 5.6c2.6 1.9 3.7 4.7 3.3 7.4-.3 2.2-1.6 3.6-3.3 3.9" fill="${c}"/>
+      <path d="M11.8 6.4c-2.3 1.8-3.3 4.3-2.9 6.8.3 2 1.5 3.3 2.9 3.5" fill="${l}"/>
+      <path d="M9.4 9.8c1.7-.6 3.7-.2 5.2 1.3M9.6 13.2c1.3-.7 3-.6 4.4.4" stroke="${d}" stroke-width=".7" fill="none" stroke-linecap="round"/>
+      <path d="M12 17.8c-1-1.9-3.3-2.7-5-2.2.9 2.2 2.9 3.2 5 3zM12 17.8c1-1.9 3.3-2.7 5-2.2-.9 2.2-2.9 3.2-5 3z" fill="#6F8A3A"/>
+      <path d="M12 18.4v3" stroke="#5B732F" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M10.3 8.2c-.7 1.1-1 2.5-.8 3.9" stroke="${hi}" stroke-width=".8" fill="none" stroke-linecap="round"/>`,
+    // 紅棗：皺皮、果蒂、亮面
+    jujube: `<g transform="rotate(-18 12 12)"><ellipse cx="12" cy="12.6" rx="6.2" ry="7.8" fill="${c}"/>
+      <path d="M14.6 5.8c2.9 2.5 3.7 7.6 1.5 11.4-1.2 2-3 2.9-4.7 3 3.9-2.7 4.8-9 3.2-14.4z" fill="${d}" opacity=".7"/>
+      <path d="M8.6 9.2c1.5 1 1.4 2.5 2.9 3.1M8.9 14.3c1.5-.4 2.4.8 3.7.2M11.7 7.6c.8 1.3 2.3 1.6 2.6 3.1M13.5 13.2c.6 1.4-.2 2.6.8 3.8M10.4 17.2c.9-.6 1.9-.4 2.6-1" stroke="${d}" stroke-width=".75" fill="none" stroke-linecap="round"/>
+      <ellipse cx="12" cy="5.3" rx="1.5" ry=".8" fill="${d}"/>
+      <path d="M12 5.1V3.4" stroke="#7A5A2A" stroke-width=".9" stroke-linecap="round"/>
+      <path d="M8.9 8.4c-.9 1.3-1.2 3-.9 4.6" stroke="${hi}" stroke-width="1" fill="none" stroke-linecap="round"/></g>`,
+    // 枸杞：細長、兩端尖、表面細紋
+    goji: `<g transform="rotate(14 12 12)"><path d="M12.4 3.4c2.6 1.6 3.6 5.4 3 9.3-.5 3.6-2 6.4-3.3 7.9-.4.4-.9.4-1.2 0-1.5-2-2.6-5.2-2.6-8.8.1-3.9 1.5-7 4.1-8.4z" fill="${c}"/>
+      <path d="M13.4 4.4c1.9 2 2.5 5.5 1.9 9-.5 3-1.7 5.4-2.9 6.9.9-2.6 1.7-5.8 1.7-8.9 0-2.7-.2-4.9-.7-7z" fill="${d}" opacity=".6"/>
+      <path d="M10.6 8.6c.8.6 1.6.6 2.6.2M10.4 12.6c.9.5 1.9.5 3 0M10.9 16.3c.7.4 1.4.4 2.2 0" stroke="${d}" stroke-width=".6" fill="none" stroke-linecap="round" opacity=".85"/>
+      <circle cx="12.5" cy="3.6" r=".85" fill="#E8D7A0"/>
+      <path d="M10.2 7.6c-.4 1.6-.5 3.4-.2 5" stroke="${hi}" stroke-width=".9" fill="none" stroke-linecap="round"/></g>`,
+    // 陳皮：捲起的果皮，外皮有油胞小點、內側白色果瓤
+    chenpi: `<path d="M3.5 13.2c3-5.6 9.6-8 16.5-6.2-1 1.6-2.6 2.6-4.4 3-3.6.8-7.6 1.4-12.1 3.2z" fill="#F1DAA8"/>
+      <path d="M3.5 13.2c4.5-1.8 8.5-2.4 12.1-3.2 1.8-.4 3.4-1.4 4.4-3 .8 3.8-.6 8-4.4 10-4 2.2-9 1.6-12.1-3.8z" fill="${c}"/>
+      <path d="M5.6 15.6c3.4 2.8 8 3 11.4 1 2-1.2 3.2-3 3.6-5-1 3.4-3.6 5.6-7 6.2-3 .4-5.8-.4-8-2.2z" fill="${d}" opacity=".75"/>
+      <g fill="${d}" opacity=".6"><circle cx="8" cy="14" r=".45"/><circle cx="10.6" cy="13" r=".45"/><circle cx="13.4" cy="12.4" r=".45"/><circle cx="16" cy="12" r=".45"/><circle cx="9.7" cy="15.6" r=".45"/><circle cx="12.5" cy="15" r=".45"/><circle cx="15.3" cy="14.4" r=".45"/><circle cx="18" cy="10.8" r=".45"/><circle cx="17.6" cy="13.2" r=".45"/></g>
+      <path d="M5 12.4c3.4-1.4 7-2 10.6-2.8" stroke="${l}" stroke-width=".8" fill="none" stroke-linecap="round"/>`,
+    // 山楂乾片：紅色果皮邊、淺色果肉、中間一圈種子
+    hawthorn: `<circle cx="12" cy="12" r="8" fill="${c}"/>
+      <circle cx="12" cy="12" r="7.4" fill="none" stroke="${d}" stroke-width=".9" opacity=".6"/>
+      <circle cx="12" cy="12" r="6" fill="#EBC394"/>
+      <circle cx="12" cy="12" r="4.5" fill="none" stroke="#D69B6C" stroke-width=".6" stroke-dasharray="1.2 1"/>
+      <g fill="#8A5636"><ellipse cx="12" cy="9.8" rx=".7" ry="1.1"/><ellipse cx="14.1" cy="11.3" rx=".7" ry="1.1" transform="rotate(72 14.1 11.3)"/><ellipse cx="13.3" cy="13.8" rx=".7" ry="1.1" transform="rotate(144 13.3 13.8)"/><ellipse cx="10.7" cy="13.8" rx=".7" ry="1.1" transform="rotate(216 10.7 13.8)"/><ellipse cx="9.9" cy="11.3" rx=".7" ry="1.1" transform="rotate(288 9.9 11.3)"/></g>
+      <circle cx="12" cy="12" r=".8" fill="#B07A52"/>
+      <path d="M6.4 9.4a6.6 6.6 0 0 1 4-3.6" stroke="${hi}" stroke-width=".9" fill="none" stroke-linecap="round"/>`,
+    // 桂圓：帶殼，殼面細小顆粒與果蒂
+    longan: `<circle cx="12" cy="12.6" r="7.2" fill="${c}"/>
+      <path d="M17.4 8.2c2 3.4 1 7.8-2.4 9.8s-7.6 1.4-9.6-1.6c2.8 1.9 6.6 1.9 9.2-.4 2.6-2.2 3.4-5.2 2.8-7.8z" fill="${d}" opacity=".7"/>
+      <g fill="${d}" opacity=".55"><circle cx="9" cy="12.4" r=".5"/><circle cx="11.4" cy="14.6" r=".5"/><circle cx="14" cy="11.6" r=".5"/><circle cx="12.6" cy="9.4" r=".5"/><circle cx="9.8" cy="16" r=".5"/><circle cx="15.4" cy="14.8" r=".5"/></g>
+      <g fill="${l}" opacity=".6"><circle cx="10.4" cy="11" r=".4"/><circle cx="13" cy="13" r=".4"/><circle cx="8.4" cy="14.6" r=".4"/></g>
+      <circle cx="12" cy="5.8" r="1.3" fill="${d}"/><circle cx="12" cy="5.8" r=".5" fill="${l}"/>
+      <ellipse cx="9.4" cy="9.4" rx="1.9" ry="1.1" fill="rgba(255,255,255,.35)" transform="rotate(-38 9.4 9.4)"/>`,
+    // 薑片：外皮一圈、淺黃色果肉、放射狀纖維
+    ginger: `<path d="M4.4 12.6c-.4-4 3-7.4 7.6-7.6 4.4-.2 8 2.6 7.6 6.6-.3 3.6-3.6 6.8-7.8 6.8-4.2.1-7.1-2.2-7.4-5.8z" fill="#B98A48"/>
+      <path d="M5.7 12.4c-.3-3.3 2.6-6.1 6.4-6.2 3.7-.2 6.6 2.1 6.3 5.4-.3 3-3 5.6-6.5 5.6-3.4.1-5.9-1.8-6.2-4.8z" fill="${c}"/>
+      <ellipse cx="12.1" cy="11.7" rx="3.8" ry="2.9" fill="${l}" opacity=".7"/>
+      <ellipse cx="12.1" cy="11.7" rx="3.8" ry="2.9" fill="none" stroke="${d}" stroke-width=".55" opacity=".55"/>
+      <path d="M12.1 11.7 7.6 9M12.1 11.7l-.6-4.7M12.1 11.7l4.7-2.3M12.1 11.7l5.1 1.2M12.1 11.7l2.4 4.5M12.1 11.7l-2.8 4.3M12.1 11.7l-5.3.8" stroke="${d}" stroke-width=".4" opacity=".45"/>`
   };
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}">${shapes[id] || `<circle cx="12" cy="12" r="6" fill="${color}"/>`}</svg>`;
 }
@@ -2514,26 +2642,44 @@ function labRemove(id) {
   document.getElementById('lab-hint').innerText = '';
   labRender(); labUpdate();
 }
-// ---- 杯中配料：每種 3 片，從杯口掉進杯底；沖泡後隨熱水浮起、輕輕晃動 ----
-// 位置（外層）和晃動動畫（內層）分開兩層，動畫才不會把位置蓋掉
+// ---- 杯中配料：每種 3 片，邊翻轉邊從杯口掉進杯底；沖泡後吸水微微膨起、隨熱水浮起、輕輕晃動 ----
+// 位置（外層）、晃動動畫（中層）、翻轉與大小（內層）分開，動畫才不會互相蓋掉
 let labBrewed = false;
-const LAB_SURFACE_DRY = 97, LAB_SURFACE_FULL = 30;
+const LAB_SURFACE_DRY = 97, LAB_SURFACE_FULL = 26.5;
+const LAB_SVG_NS = 'http://www.w3.org/2000/svg';
 function labPiece(id, x, restY, floatY, rot) {
   const g = LAB_INGS.find(v => v.id === id);
-  const outer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  const sc = +(0.88 + Math.random() * 0.22).toFixed(2);   // 每片大小略有不同，看起來比較自然
+  const outer = document.createElementNS(LAB_SVG_NS, 'g');
   outer.setAttribute('class', 'lab-piece');
   outer.dataset.ing = id; outer.dataset.x = x; outer.dataset.rest = restY; outer.dataset.float = floatY;
+  outer.dataset.rot = rot; outer.dataset.sc = sc;
   outer.style.transform = `translate(${x}px, -14px)`;
-  outer.innerHTML = `<g class="lab-bob" style="animation-delay:-${(Math.random() * 2.5).toFixed(2)}s"><g transform="rotate(${rot})">${labBitSVG(id, g.color, 19).replace('<svg', '<svg x="-9.5" y="-9.5" overflow="visible"')}</g></g>`;
+  outer.innerHTML = `<g class="lab-bob" style="animation-delay:-${(Math.random() * 2.5).toFixed(2)}s"><g class="lab-spin" style="transform:rotate(${rot - 140}deg) scale(${sc})">${labBitSVG(id, g.color, 19).replace('<svg', '<svg x="-9.5" y="-9.5" overflow="visible"')}</g></g>`;
   return outer;
 }
+// 泡過熱水的配料會吸水膨起一點
+function labPieceSpin(el, soaked, ms, delay) {
+  const spin = el.querySelector('.lab-spin');
+  spin.style.transition = ms ? `transform ${ms}ms cubic-bezier(.3,.7,.3,1) ${delay || 0}ms` : 'none';
+  spin.style.transform = `rotate(${el.dataset.rot}deg) scale(${(+el.dataset.sc * (soaked ? 1.12 : 1)).toFixed(3)})`;
+}
 function labRipple(x, y) {
-  const ring = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+  const ring = document.createElementNS(LAB_SVG_NS, 'ellipse');
   ring.setAttribute('cx', x); ring.setAttribute('cy', y); ring.setAttribute('rx', 7); ring.setAttribute('ry', 2);
   ring.setAttribute('fill', 'none'); ring.setAttribute('stroke', 'rgba(255,255,255,.7)'); ring.setAttribute('stroke-width', '1.2');
   ring.setAttribute('class', 'lab-ripple');
   document.getElementById('lab-ripples').appendChild(ring);
   setTimeout(() => ring.remove(), 700);
+}
+// 水面的小氣泡：冒出來、往上一點就消失
+function labBubble(x, y) {
+  const b = document.createElementNS(LAB_SVG_NS, 'circle');
+  b.setAttribute('cx', x); b.setAttribute('cy', y); b.setAttribute('r', (0.5 + Math.random() * 0.7).toFixed(2));
+  b.setAttribute('fill', 'rgba(255,250,235,.25)'); b.setAttribute('stroke', 'rgba(255,255,255,.75)'); b.setAttribute('stroke-width', '.45');
+  b.setAttribute('class', 'lab-bubble');
+  document.getElementById('lab-ripples').appendChild(b);
+  setTimeout(() => b.remove(), 750);
 }
 function labSplash(xRatio) {
   const id = labPicked[labPicked.length - 1];
@@ -2546,13 +2692,23 @@ function labSplash(xRatio) {
     const floatY = 40 + gi * 15 + k * 5 + Math.random() * 6;
     const el = labPiece(id, x, restY, floatY, Math.round(Math.random() * 360));
     box.appendChild(el);
-    void el.getBoundingClientRect();
     const target = labBrewed ? floatY : restY;
+    if (REDUCE_MOTION) {
+      el.style.transform = `translate(${x}px, ${target}px)`;
+      labPieceSpin(el, labBrewed, 0);
+      if (labBrewed) el.classList.add('floating');
+      return;
+    }
+    void el.getBoundingClientRect();
     const delay = k * 0.12;
     el.style.transition = `transform .75s cubic-bezier(.45,0,.6,1.3) ${delay}s`;
     el.style.transform = `translate(${x}px, ${target}px)`;
-    setTimeout(() => labRipple(x, labBrewed ? LAB_SURFACE_FULL : LAB_SURFACE_DRY), (delay + (labBrewed ? 0.25 : 0.55)) * 1000);
-    if (labBrewed) setTimeout(() => el.classList.add('floating'), (delay + 0.8) * 1000);
+    labPieceSpin(el, false, 750, delay * 1000);
+    if (labBrewed) {
+      // 掉進已經泡好的茶：水面漣漪＋幾顆氣泡，接著吸水膨起、浮在茶湯裡
+      setTimeout(() => { labRipple(x, LAB_SURFACE_FULL); labBubble(x - 2, LAB_SURFACE_FULL + 1.5); labBubble(x + 2.5, LAB_SURFACE_FULL + 2.5); }, (delay + 0.25) * 1000);
+      setTimeout(() => { el.classList.add('floating'); labPieceSpin(el, true, 1400); }, (delay + 0.8) * 1000);
+    } else setTimeout(() => labRipple(x, LAB_SURFACE_DRY), (delay + 0.55) * 1000);
   });
 }
 function labRemovePieces(id) {
@@ -2573,7 +2729,8 @@ function labFloatPieces() {
     const dur = Math.round(POUR_MS * Math.min(1, reach + 0.1));
     el.style.transition = `transform ${dur}ms ${POUR_EASE} ${d}ms`;
     el.style.transform = `translate(${el.dataset.x}px, ${el.dataset.float}px)`;
-    setTimeout(() => el.classList.add('floating'), d + dur);
+    labPieceSpin(el, true, 1600, d);
+    labLater(() => el.classList.add('floating'), d + dur);
   });
 }
 function labColor() {
@@ -2596,39 +2753,139 @@ function labUpdate() {
   document.getElementById('lab-temp-v').innerText = document.getElementById('lab-temp').value + '°C';
   document.getElementById('lab-time-v').innerText = document.getElementById('lab-time').value + ' 分鐘';
   document.getElementById('lab-tip').innerText = labTip().text + '（建議 90～95°C、3～5 分鐘）';
-  document.getElementById('lab-liquid').setAttribute('fill', labColor());
+  // 茶湯顏色：剛注入的熱水是淡淡的茶色，浸出後變成完整茶色；暈開的色團比茶湯再深一點
+  const col = labColor();
+  document.getElementById('lab-liquid').setAttribute('fill', col);
+  document.getElementById('lab-water').setAttribute('fill', labMix([col, '#F4E7C6', '#F4E7C6']));
+  document.querySelectorAll('#lab-cup .lab-plume-stop').forEach(st => st.setAttribute('stop-color', labTone(col, -0.3)));
 }
 const POUR_MS = 4000;   // 倒滿一杯茶的時間
 const POUR_EASE = 'cubic-bezier(.45,.05,.55,.95)';
-// 水柱（杯外、杯內兩段）一起顯示／隱藏
-function labStreamOpacity(v) { document.querySelectorAll('#lab-cup .lab-stream').forEach(g => g.style.opacity = v); }
+const STEEP_MS = POUR_MS + 900;   // 茶色從淡淡的熱水慢慢浸出成茶湯的時間
+// 算出 POUR_EASE 這條曲線在某個時間點的進度，讓漣漪、氣泡剛好落在當下的水面上
+function labEase(t) {
+  const x1 = .45, y1 = .05, x2 = .55, y2 = .95;
+  let u = t;
+  for (let i = 0; i < 6; i++) {
+    const x = 3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u - t;
+    const dx = 3 * (1 - u) * (1 - u) * x1 + 6 * (1 - u) * u * (x2 - x1) + 3 * u * u * (1 - x2);
+    if (Math.abs(dx) < 1e-6) break;
+    u = Math.min(1, Math.max(0, u - x / dx));
+  }
+  return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
+}
+// 沖泡過程的計時器集中管理：重新調一杯時一次清掉，不會有上一輪的動畫跑出來
+let labTimers = [], labFxTimer = null;
+function labLater(fn, ms) { labTimers.push(setTimeout(fn, ms)); }
+function labClearTimers() { labTimers.forEach(clearTimeout); labTimers = []; clearInterval(labFxTimer); labFxTimer = null; }
+// 茶湯水位（0～1）：三層茶湯一起縮放，水面亮線跟著移動；乾杯時杯底保留一小段茶色色帶
+const LAB_DRY = 0.1;
+function labLevel(v, ms) {
+  document.querySelectorAll('#lab-cup .lab-liq').forEach(r => {
+    r.style.transition = ms ? `transform ${ms}ms ${POUR_EASE}, fill .6s ease` : 'fill .6s ease';
+    r.style.transform = `scaleY(${v})`;
+  });
+  const surf = document.getElementById('lab-surface');
+  surf.style.transition = ms ? `transform ${ms}ms ${POUR_EASE}, opacity .3s ease` : 'none';
+  surf.style.transform = `translateY(${104.3 - 78.3 * v}px)`;
+  surf.style.opacity = v > LAB_DRY ? '1' : '0';   // 乾杯的茶色色帶不畫水面亮線
+}
+// 水柱（杯外、杯內兩段）一起顯示／隱藏；倒水時水柱才開始流動
+function labStreamOpacity(v) {
+  document.querySelectorAll('#lab-cup .lab-stream').forEach(g => g.style.opacity = v);
+  if (v === '1') document.getElementById('lab-cup').classList.add('pouring');
+  else setTimeout(() => { if (document.querySelector('#lab-stream').style.opacity === '0') document.getElementById('lab-cup').classList.remove('pouring'); }, 320);
+}
+// 倒水時：水柱打到水面的地方一直有漣漪和小氣泡
+function labPourFx(t0) {
+  clearInterval(labFxTimer);
+  let n = 0;
+  labFxTimer = setInterval(() => {
+    const p = (performance.now() - t0) / POUR_MS;
+    if (p >= 0.95) { clearInterval(labFxTimer); labFxTimer = null; return; }
+    const y = 104.3 - 78.3 * labEase(Math.max(0, p));
+    if (n++ % 2 === 0) labRipple(53.5, y);
+    labBubble(53.5 + (Math.random() * 9 - 4.5), y + 1 + Math.random() * 3.5);
+  }, 170);
+}
+// 茶色從杯底往上暈開
+function labPlumes() {
+  const box = document.getElementById('lab-plumes');
+  box.innerHTML = '';
+  [[36, 0], [47, 260], [58, 120], [69, 380], [42, 900], [62, 1100]].forEach(([x, d]) => {
+    const g = document.createElementNS(LAB_SVG_NS, 'g');
+    g.setAttribute('transform', `translate(${x} 99)`);
+    g.innerHTML = `<ellipse class="lab-plume" rx="9" ry="7" fill="url(#lab-plume-grad)" style="--d:${d}ms"/>`;
+    box.appendChild(g);
+  });
+  labLater(() => { box.innerHTML = ''; }, 1100 + 3400 + 100);
+}
+// 收水後壺嘴滴下兩滴
+function labDrips() {
+  const box = document.getElementById('lab-drips');
+  [0, 330].forEach(d => labLater(() => {
+    const g = document.createElementNS(LAB_SVG_NS, 'g');
+    g.setAttribute('transform', 'translate(54.6 9)');
+    g.innerHTML = '<path class="lab-drip" d="M0-1.7c.9 1.1 1.3 1.9 1.3 2.5a1.3 1.3 0 0 1-2.6 0c0-.6.4-1.4 1.3-2.5z" fill="rgba(255,236,200,.85)"/>';
+    box.appendChild(g);
+    labLater(() => { g.remove(); labRipple(53.8, LAB_SURFACE_FULL); }, 400);
+  }, d));
+}
+function labBrewDone(btn) {
+  labShowResult(); btn.disabled = false; btn.innerText = '再沖泡一次'; btn.classList.remove('opacity-60');
+  stampSet('diy');
+}
 function labBrew() {
   const btn = document.getElementById('lab-brew-btn');
   const liquid = document.getElementById('lab-liquid');
+  const cup = document.getElementById('lab-cup');
+  const steam = document.getElementById('lab-steam');
+  labClearTimers();
   btn.disabled = true; btn.innerText = '沖泡中…'; btn.classList.add('opacity-60');
-  document.getElementById('lab-cup').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  cup.scrollIntoView({ behavior: 'smooth', block: 'center' });
   document.getElementById('lab-result').innerHTML = '';
-  document.getElementById('lab-steam').style.opacity = '0';
-  // 先把杯子歸零（暫時不要動畫），再明確設定 4 秒的倒茶動畫
-  liquid.style.transition = 'none'; liquid.style.transform = 'scaleY(0.1)';
+  steam.classList.remove('steaming'); steam.style.opacity = '0';
+  // 先把杯子歸零（暫時不要動畫）：回到杯底色帶，茶色回到剛注入熱水的淡色
+  labLevel(LAB_DRY, 0);
+  liquid.style.transition = 'fill .6s ease'; liquid.style.opacity = '0';
   void liquid.getBoundingClientRect();
-  // 熱水壺先從右上方滑進來、傾斜，接著倒出熱水，茶湯慢慢升高
+
+  // 減少動態效果：不播倒水過程，直接顯示泡好的茶
+  if (REDUCE_MOTION) {
+    labLevel(1, 0); liquid.style.opacity = '1';
+    labBrewed = true;
+    document.querySelectorAll('#lab-bits .lab-piece').forEach(el => {
+      el.style.transition = 'none'; el.style.transform = `translate(${el.dataset.x}px, ${el.dataset.float}px)`;
+      labPieceSpin(el, true, 0); el.classList.add('floating');
+    });
+    steam.classList.add('steaming'); steam.style.opacity = '1';
+    labLater(() => labBrewDone(btn), 400);
+    return;
+  }
+
+  // 熱水壺從右上方滑進來 → 傾斜到出水角度 → 倒出熱水，茶湯慢慢升高
   const kettle = document.getElementById('lab-kettle');
+  const tilt = document.getElementById('lab-kettle-tilt');
   kettle.style.opacity = '1'; kettle.style.transform = 'translate(0,0)';
-  setTimeout(() => { labStreamOpacity('1'); }, 450);
-  setTimeout(() => {
-    liquid.style.transition = `transform ${POUR_MS}ms ${POUR_EASE}, fill .6s ease`;
-    liquid.style.transform = 'scaleY(1)';
+  labLater(() => { tilt.style.transform = 'rotate(0deg)'; }, 200);
+  labLater(() => { labStreamOpacity('1'); }, 450);
+  labLater(() => {
+    labLevel(1, POUR_MS);
+    // 茶色慢慢浸出：一開始是淡色熱水，越泡越接近設定的茶湯顏色
+    liquid.style.transition = `transform ${POUR_MS}ms ${POUR_EASE}, fill .6s ease, opacity ${STEEP_MS}ms cubic-bezier(.5,0,.75,.7)`;
+    liquid.style.opacity = '1';
     labBrewed = true;
     labFloatPieces();
+    labPourFx(performance.now());
+    labLater(labPlumes, 700);   // 等水位高一些再開始暈色，色團才不會跑出水面
   }, 550);
-  // 倒滿後收水流、水壺退出、冒熱氣
-  setTimeout(() => { labStreamOpacity('0'); }, 550 + POUR_MS - 200);
-  setTimeout(() => { kettle.style.opacity = '0'; kettle.style.transform = 'translate(16px,-16px)'; document.getElementById('lab-steam').style.opacity = '1'; }, 550 + POUR_MS + 100);
-  setTimeout(() => {
-    labShowResult(); btn.disabled = false; btn.innerText = '再沖泡一次'; btn.classList.remove('opacity-60');
-    stampSet('diy');
-  }, 550 + POUR_MS + 600);
+  // 倒滿後收水流、壺身回正、滴兩滴，水壺退出、冒熱氣
+  labLater(() => { labStreamOpacity('0'); tilt.style.transform = 'rotate(18deg)'; labDrips(); }, 550 + POUR_MS - 200);
+  labLater(() => {
+    kettle.style.opacity = '0'; kettle.style.transform = 'translate(16px,-16px)';
+    steam.style.opacity = '1'; void steam.getBoundingClientRect(); steam.classList.add('steaming');
+  }, 550 + POUR_MS + 300);
+  labLater(() => labBrewDone(btn), 550 + POUR_MS + 700);
 }
 function labShowResult() {
   const v = labFlavor();
@@ -2786,15 +3043,19 @@ function labReset() {
   document.getElementById('lab-temp').value = 90;
   document.getElementById('lab-time').value = 3;
   document.getElementById('lab-result').innerHTML = '';
-  document.getElementById('lab-steam').style.opacity = '0';
-  document.getElementById('lab-ripples').innerHTML = '';
-  document.getElementById('lab-bits').innerHTML = '';
+  labClearTimers();
+  const steam = document.getElementById('lab-steam'); steam.classList.remove('steaming'); steam.style.opacity = '0';
+  ['lab-ripples', 'lab-bits', 'lab-plumes', 'lab-drips'].forEach(id => { document.getElementById(id).innerHTML = ''; });
   labBrewed = false;
   labStreamOpacity('0');
   const kt = document.getElementById('lab-kettle'); kt.style.opacity = '0'; kt.style.transform = 'translate(16px,-16px)';
-  const liquid = document.getElementById('lab-liquid');
-  liquid.style.transition = 'none'; liquid.style.transform = 'scaleY(0.1)';
+  document.getElementById('lab-kettle-tilt').style.transform = 'rotate(18deg)';
+  // 杯子回到乾的狀態：只留杯底茶色色帶
+  labLevel(LAB_DRY, 0);
+  const liquid = document.getElementById('lab-liquid'); liquid.style.transition = 'fill .6s ease'; liquid.style.opacity = '1';
+  document.getElementById('lab-cup').classList.remove('pouring');
   const btn = document.getElementById('lab-brew-btn'); btn.innerText = '③ 開始沖泡';
+  btn.disabled = false; btn.classList.remove('opacity-60');
   labRender(); labUpdate();
   document.getElementById('st-diy').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
