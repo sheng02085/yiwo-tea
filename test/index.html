@@ -49,16 +49,6 @@ body, html {
    讓它們的起始顏色落在設定好的位置；html.bg-hold 由 <head> 的小 script 加上、JS 拿掉 */
 html.bg-hold .fluid-bg { animation-play-state: paused !important; }
 @keyframes fluidBackground { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-/* 影片播放中：暫停整頁與 .fluid-bg 的流動底色。background-position 動畫每一格都要重畫整頁，
-   再加上 header 的 backdrop-filter 要跟著重算模糊，會和影片解碼搶效能，造成播放一頓一頓（Android 平板實測）。
-   暫停後只是底色停在當下的位置，不會跳色；影片暫停或播完就恢復流動。由 initVideoBgPause() 切換 */
-html.video-playing, html.video-playing body, html.video-playing .fluid-bg { animation-play-state: paused !important; }
-/* 影片播放中：關掉所有毛玻璃（backdrop-filter）。影片每換一格，瀏覽器就得把影片附近的毛玻璃重新模糊一次，
-   GPU 來不及就跳格（Chrome 掉格統計看不到，畫面卻一頓一頓）。底色是平滑漸層，拿掉模糊後卡片外觀幾乎不變；
-   header 改成接近原本色調的半透明實色，避免捲動時底下文字直接透出來。影片暫停或播完就恢復 */
-html.video-playing .liquid-glass, html.video-playing .liquid-glass-dark { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-html.video-playing body > header { background: rgba(16,30,22,.94); }
-body > header { transition: background-color .3s ease; }
 
 .liquid-glass {
   background: rgba(255,255,255,0.08); backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%);
@@ -1273,7 +1263,7 @@ function imgFallback(el, onFail) {
 // poster：封面圖（iPhone 不會自動顯示影片第一格，沒有封面會是一片黑），可留空
 // 換影片時改 BRAND_FILM_V，避免瀏覽器快取到舊檔
 const BRAND_FILM = { src: 'videos/brand-film.mp4', poster: 'videos/brand-film-poster.jpg' };
-const BRAND_FILM_V = '?v=20261004b';
+const BRAND_FILM_V = '?v=20261004c';
 function initBrandFilm() {
   const wrap = document.getElementById('brand-film');
   const box = document.getElementById('brand-film-box');
@@ -1312,34 +1302,23 @@ function initBrandFilm() {
   wrap.classList.remove('hidden');
 }
 initBrandFilm();
-// 任何 <video> 播放時暫停流動底色（見 CSS html.video-playing）；play/pause 事件不會冒泡，所以用捕獲階段監聽
-function initVideoBgPause() {
-  const sync = () => {
-    const playing = [...document.querySelectorAll('video')].some(v => !v.paused && !v.ended);
-    document.documentElement.classList.toggle('video-playing', playing && !document.documentElement.classList.contains('film-nofix'));
-  };
-  ['play', 'playing', 'pause', 'ended', 'emptied'].forEach(ev => document.addEventListener(ev, sync, true));
-}
-initVideoBgPause();
 // 影片播放診斷（只在網址加 ?filmdebug 時出現）：用 requestVideoFrameCallback 量「真正顯示到畫面上」的格數，
-// 能抓到 Chrome 掉格統計看不到的合成層跳格。加 ?nofix 可關掉播放時的效能處理，同一台裝置前後對照
+// 能抓到 Chrome 掉格統計看不到的跳格。第一次播放（從網路串流）與第二次播放（已快取）分開記錄
 (function filmDebug() {
   const q = new URLSearchParams(location.search);
-  if (q.has('nofix')) document.documentElement.classList.add('film-nofix');
   if (!q.has('filmdebug')) return;
   const v = document.getElementById('brand-film-video');
   if (!v) return;
   const box = document.createElement('div');
   box.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:9999;background:rgba(0,0,0,.82);color:#fff;font:12px/1.5 ui-monospace,monospace;padding:8px 10px;border-radius:8px;pointer-events:none;white-space:pre';
   document.body.appendChild(box);
-  let st = null;
-  const reset = () => { st = { n: 0, skip: 0, jank: 0, maxGap: 0, last: null, t0: performance.now() }; };
+  let st = null, playNo = 0;
+  const reset = () => { playNo++; st = { n: 0, skip: 0, jank: 0, maxGap: 0, last: null, t0: performance.now() }; };
   const show = () => {
-    if (!st) { box.textContent = (q.has('nofix') ? '【未處理 nofix】' : '【已處理】') + '\n按播放開始量測'; return; }
+    if (!st) { box.textContent = '按播放開始量測'; return; }
     const sec = (performance.now() - st.t0) / 1000;
     let dq = ''; try { const pq = v.getVideoPlaybackQuality(); dq = `\nChrome 掉格：${pq.droppedVideoFrames}`; } catch (e) {}
-    box.textContent = (q.has('nofix') ? '【未處理 nofix】' : '【已處理】') +
-      `\n顯示 ${st.n} 格（${(st.n / Math.max(sec, .01)).toFixed(1)} fps）\n跳過 ${st.skip} 格｜卡頓 ${st.jank} 次\n最長停頓 ${(st.maxGap * 1000).toFixed(0)} ms` + dq;
+    box.textContent = `第 ${playNo} 次播放\n顯示 ${st.n} 格（${(st.n / Math.max(sec, .01)).toFixed(1)} fps）\n跳過 ${st.skip} 格｜卡頓 ${st.jank} 次\n最長停頓 ${(st.maxGap * 1000).toFixed(0)} ms` + dq;
   };
   if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) { box.textContent = '此瀏覽器不支援 requestVideoFrameCallback'; return; }
   const onFrame = (now, m) => {
