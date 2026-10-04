@@ -820,6 +820,8 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
           <span class="text-[10px] font-mono bg-tea-gold text-tea-dark font-bold px-2 py-1 rounded">品牌故事</span>
           <h2 class="font-serif text-3xl lg:text-4xl font-bold mt-4">一握茶研所</h2>
           <p class="text-sm text-white/60 mt-3">一握佛手，一茶一故事</p>
+          <!-- 品牌形象影片：由 BRAND_VIDEO 設定，留空則不顯示 -->
+          <div id="brand-video" class="hidden mt-5 max-w-3xl mx-auto"></div>
         </div>
 
         <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:420ms">
@@ -999,6 +1001,8 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
    Cloudflare 後台的加密變數裡，安全多了）
    ========================================================= */
 const WORKER_URL = "https://tea.arp21760208.workers.dev/";
+// 品牌形象影片（品牌故事頁標題卡下方）：填 mp4 路徑（例如 "videos/brand.mp4"）或 YouTube 連結，留空則不顯示
+const BRAND_VIDEO = "";
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 /* =========================================================
@@ -1179,18 +1183,31 @@ const DEFAULT_BG = "linear-gradient(-45deg, #0A140E, #1C3A27, #664d14, #12261A)"
 
 // 茶款理念影片：TEA_DB 裡填了 video 就在「茶款理念」卡片最上方顯示影片，沒填就不顯示
 // 支援兩種：放在 GitHub 上的 mp4 檔，或 YouTube 連結
-function storyMedia(tea) {
-  const v = (tea.video || '').trim();
+// 共用影片產生器：茶款理念影片與品牌形象影片都用這個
+function mediaEmbed(src, title, extraClass) {
+  const v = (src || '').trim();
   if (!v) return '';
+  const cls = extraClass || '';
   const yt = v.match(/(?:youtu\.be\/|v=|shorts\/|embed\/)([\w-]{11})/);
   if (yt) {
-    return `<div class="relative w-full rounded-xl overflow-hidden bg-black mb-3" style="aspect-ratio:16/9">
+    return `<div class="relative w-full rounded-xl overflow-hidden bg-black ${cls}" style="aspect-ratio:16/9">
       <iframe class="absolute inset-0 w-full h-full" src="https://www.youtube-nocookie.com/embed/${yt[1]}?playsinline=1&rel=0"
-        title="${tea.name} 茶款理念" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        title="${title}" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     </div>`;
   }
-  return `<video class="w-full rounded-xl bg-black mb-3" src="${v}" controls playsinline preload="metadata"></video>`;
+  return `<video class="w-full rounded-xl bg-black ${cls}" src="${v}" controls playsinline preload="metadata"></video>`;
 }
+function storyMedia(tea) {
+  return mediaEmbed(tea.video, `${tea.name} 茶款理念`, 'mb-3');
+}
+// 品牌形象影片：BRAND_VIDEO 有填才顯示
+(function renderBrandVideo() {
+  const box = document.getElementById('brand-video');
+  const html = mediaEmbed(BRAND_VIDEO, '一握茶研所 品牌形象影片', '');
+  if (!box || !html) return;
+  box.innerHTML = html;
+  box.classList.remove('hidden');
+})();
 
 // 茶款頁 360° 茶罐：images/tin-<茶款id>-72.webp 為 12×6、共 72 格的旋轉序列圖（每格 5°）
 // 單格尺寸由圖片實際寬高自動計算，之後換成更高解析度的序列圖不需改程式
@@ -1740,6 +1757,8 @@ function showView(name, fromHistory, restoreY) {
   views.forEach(v => {
     v.classList.remove('active');
     v.classList.remove('node-reveal');
+    // 離開頁面時暫停該頁影片（display:none 不會停止播放，聲音會繼續）
+    if (v !== target) v.querySelectorAll('video').forEach(el => { try { el.pause(); } catch (e) {} });
   });
 
   // 按返回（或瀏覽器前進）回到的頁面：不重播原本逐張的長淡入（會先看到一片空白），
