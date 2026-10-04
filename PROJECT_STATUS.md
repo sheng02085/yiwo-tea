@@ -427,7 +427,7 @@ AI 問答提供動態建議按鈕。
 ## 品牌形象片（2026-10-04）
 
 * 位置：品牌故事頁，標題卡片「一握茶研所／一握佛手，一茶一故事」正下方、「我們在做什麼」上方（`#brand-film`，進場延遲 360ms）
-* 16:9 黑底框＋淡金細框，下方小字「品牌形象片」；刻意不放在 liquid-glass（backdrop-filter）卡片裡
+* 16:9 黑底框＋淡金細框，下方不加說明文字（原本的小字「品牌形象片」已刪除，2026-10-04）；刻意不放在 liquid-glass（backdrop-filter）卡片裡
 * **目前來源：Cloudflare R2 + Worker**（2026-10-04 定案）`https://video.arp21760208.workers.dev/brand-film.mp4`（60fps、Level 4.2、約 4 MB），用網站自己的 `<video>` 播放
   * Worker「video」在 Cloudflare 後台手動建立，程式為 `film-worker.js`：R2 binding 變數名稱 `FILMS`，只開放 bucket 最外層的 `.mp4／.jpg／.webp`（物件名稱不能有 `videos/` 這種資料夾），支援 Range（206）、`cache-control: public, max-age=86400`
   * 用 wrangler 上傳物件一定要加 `--remote`；不要對這個 Worker 執行 `wrangler deploy`（會蓋掉後台設定）
