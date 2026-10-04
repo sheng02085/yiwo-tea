@@ -1262,8 +1262,11 @@ function imgFallback(el, onFail) {
 // src：mp4 路徑（建議放 videos/）或 YouTube 連結；留空則不顯示
 // poster：封面圖（iPhone 不會自動顯示影片第一格，沒有封面會是一片黑），可留空
 // 換影片時改 BRAND_FILM_V，避免瀏覽器快取到舊檔
-const BRAND_FILM = { src: 'https://youtu.be/UV4oGaUC9Uo', poster: 'videos/brand-film-poster.jpg' }; // 2026-10-04 改用 YouTube（GitHub Pages 串流太慢）；poster 只在 mp4 時使用
-const BRAND_FILM_V = '?v=20261004c';
+// 2026-10-04：影片放在 Cloudflare R2，由 Worker video.arp21760208.workers.dev 提供（支援 Range）。
+// 不用 GitHub Pages（串流到台灣太慢）、jsDelivr、YouTube（看不到 60fps、有 YouTube 標誌）。封面圖很小，仍放 repo 的 videos/
+// 換影片：上傳到 R2 覆蓋 brand-film.mp4，再改 BRAND_FILM_V
+const BRAND_FILM = { src: 'https://video.arp21760208.workers.dev/brand-film.mp4', poster: 'videos/brand-film-poster.jpg' };
+const BRAND_FILM_V = '?v=20261004d';
 function initBrandFilm() {
   const wrap = document.getElementById('brand-film');
   const box = document.getElementById('brand-film-box');
