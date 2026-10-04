@@ -1302,6 +1302,41 @@ function initBrandFilm() {
   wrap.classList.remove('hidden');
 }
 initBrandFilm();
+// 品牌形象片預先整支下載：直接串流時，瀏覽器會分好幾段向 GitHub Pages 要影片，
+// 每段都可能要等伺服器（快取沒命中時要回美國主機），第一次播放就會一頓一頓；第二次播放已有快取所以很順。
+// 進入品牌故事頁時先把整支（約 4 MB）抓下來，改用記憶體裡的 blob 播放，第一次播放也和第二次一樣順。
+// 還沒抓完就按播放：照常串流播放，等暫停或播完時再換成 blob（接回原本的時間點）
+let brandFilmFetch = null, brandFilmBlobUrl = null;
+function brandFilmUseBlob(video) {
+  if (!brandFilmBlobUrl || video.dataset.blob) return;
+  if (!video.paused && !video.ended) return; // 播放中不換，避免畫面跳一下
+  const t = video.ended ? 0 : video.currentTime;
+  video.dataset.blob = '1';
+  video.preload = 'auto';
+  video.src = brandFilmBlobUrl;
+  if (t > 0.05) video.addEventListener('loadedmetadata', () => { try { video.currentTime = t; } catch (e) {} }, { once: true });
+}
+function brandFilmPrefetch() {
+  const video = document.getElementById('brand-film-video');
+  const wrap = document.getElementById('brand-film');
+  if (!video || !wrap || wrap.classList.contains('hidden')) return;
+  if (brandFilmFetch || video.dataset.blob || !video.src || video.src.startsWith('blob:')) return;
+  if (!window.fetch || !window.URL || !URL.createObjectURL) return;
+  const url = video.src;
+  brandFilmFetch = fetch(url)
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    .then(b => {
+      brandFilmBlobUrl = URL.createObjectURL(b.type ? b : new Blob([b], { type: 'video/mp4' }));
+      brandFilmUseBlob(video);
+    })
+    .catch(() => { brandFilmFetch = null; }); // 失敗就維持串流，下次進來再試
+}
+(function () {
+  const video = document.getElementById('brand-film-video');
+  if (!video) return;
+  video.addEventListener('play', brandFilmPrefetch);
+  ['pause', 'ended'].forEach(ev => video.addEventListener(ev, () => brandFilmUseBlob(video)));
+})();
 // 影片播放診斷（只在網址加 ?filmdebug 時出現）：用 requestVideoFrameCallback 量「真正顯示到畫面上」的格數，
 // 能抓到 Chrome 掉格統計看不到的跳格。第一次播放（從網路串流）與第二次播放（已快取）分開記錄
 (function filmDebug() {
@@ -1313,12 +1348,14 @@ initBrandFilm();
   box.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:9999;background:rgba(0,0,0,.82);color:#fff;font:12px/1.5 ui-monospace,monospace;padding:8px 10px;border-radius:8px;pointer-events:none;white-space:pre';
   document.body.appendChild(box);
   let st = null, playNo = 0;
-  const reset = () => { playNo++; st = { n: 0, skip: 0, jank: 0, maxGap: 0, last: null, t0: performance.now() }; };
+  const reset = () => { playNo++; st = { n: 0, skip: 0, jank: 0, maxGap: 0, last: null, t0: performance.now(), tEnd: 0, wait: 0, waitMs: 0, wStart: 0 }; };
   const show = () => {
     if (!st) { box.textContent = '按播放開始量測'; return; }
-    const sec = (performance.now() - st.t0) / 1000;
+    const now = st.wStart ? performance.now() : 0;
+    const sec = ((st.tEnd || performance.now()) - st.t0) / 1000;
+    const waitMs = st.waitMs + (st.wStart ? now - st.wStart : 0);
     let dq = ''; try { const pq = v.getVideoPlaybackQuality(); dq = `\nChrome 掉格：${pq.droppedVideoFrames}`; } catch (e) {}
-    box.textContent = `第 ${playNo} 次播放\n顯示 ${st.n} 格（${(st.n / Math.max(sec, .01)).toFixed(1)} fps）\n跳過 ${st.skip} 格｜卡頓 ${st.jank} 次\n最長停頓 ${(st.maxGap * 1000).toFixed(0)} ms` + dq;
+    box.textContent = `第 ${playNo} 次播放（${v.src.startsWith('blob:') ? '預先下載' : '串流'}）\n等待緩衝 ${st.wait} 次，共 ${(waitMs / 1000).toFixed(1)} 秒\n顯示 ${st.n} 格（${(st.n / Math.max(sec, .01)).toFixed(1)} fps）\n跳過 ${st.skip} 格｜卡頓 ${st.jank} 次\n最長停頓 ${(st.maxGap * 1000).toFixed(0)} ms` + dq;
   };
   if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) { box.textContent = '此瀏覽器不支援 requestVideoFrameCallback'; return; }
   const onFrame = (now, m) => {
@@ -1335,6 +1372,9 @@ initBrandFilm();
   v.requestVideoFrameCallback(onFrame);
   v.addEventListener('play', () => { if (v.currentTime < .2 || !st) reset(); });
   v.addEventListener('seeking', () => { if (st) st.last = null; });
+  v.addEventListener('waiting', () => { if (st && !st.wStart && !v.seeking) { st.wait++; st.wStart = performance.now(); } });
+  v.addEventListener('playing', () => { if (st && st.wStart) { st.waitMs += performance.now() - st.wStart; st.wStart = 0; } });
+  v.addEventListener('ended', () => { if (st) { if (st.wStart) { st.waitMs += performance.now() - st.wStart; st.wStart = 0; } st.tEnd = performance.now(); } });
   setInterval(show, 500); show();
 })();
 // 茶罐圖版本號：正面圖與序列圖一定要同一版，換圖時兩者一起更新並改這個號碼（避免瀏覽器快取到不同版本）
@@ -1896,6 +1936,8 @@ function showView(name, fromHistory, restoreY) {
     requestAnimationFrame(() => forceIOSRepaint(target));
   });
 
+  // 進品牌故事頁就先把品牌形象片整支下載（見 brandFilmPrefetch）
+  if (name === 'story') brandFilmPrefetch();
   // 離開頁面時暫停播放中的影片（品牌形象片、茶款理念影片），避免換頁後還在出聲
   document.querySelectorAll('video').forEach(v => { if (!target.contains(v) && !v.paused) v.pause(); });
 
