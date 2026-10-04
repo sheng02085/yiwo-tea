@@ -1264,7 +1264,8 @@ function imgFallback(el, onFail) {
 // 2026-10-04：影片放在 Cloudflare R2，由 Worker video.arp21760208.workers.dev 提供（支援 Range）。
 // 不用 GitHub Pages（串流到台灣太慢）、jsDelivr、YouTube（看不到 60fps、有 YouTube 標誌）。封面圖很小，仍放 repo 的 videos/
 // 換影片：上傳到 R2 覆蓋 brand-film.mp4，再改 BRAND_FILM_V
-const BRAND_FILM = { src: 'https://video.arp21760208.workers.dev/brand-film.mp4', poster: 'videos/brand-film-poster.jpg' };
+// fallback：R2／Worker 讀不到時改讀 repo 裡的備份（慢一點但不會整塊消失）
+const BRAND_FILM = { src: 'https://video.arp21760208.workers.dev/brand-film.mp4', fallback: 'videos/brand-film.mp4', poster: 'videos/brand-film-poster.jpg' };
 const BRAND_FILM_V = '?v=20261005c';
 function initBrandFilm() {
   const wrap = document.getElementById('brand-film');
@@ -1294,13 +1295,18 @@ function initBrandFilm() {
     probe.onerror = () => { const alt = !probe.dataset.alt && imgAltSrc(poster); if (alt) { probe.dataset.alt = '1'; probe.src = alt + BRAND_FILM_V; } };
     probe.src = poster + BRAND_FILM_V;
   }
-  // 影片讀不到：測試版先改讀正式版，再失敗就整塊收起
+  // 影片讀不到就依序換下一個來源：主來源（R2）→ 測試版改讀正式版 → repo 備份 → 都失敗才整塊收起
+  const fb = (BRAND_FILM.fallback || '').trim();
+  const queue = [src, imgAltSrc(src), fb, fb && imgAltSrc(fb)].filter(Boolean);
+  let qi = 0;
   video.addEventListener('error', () => {
-    const alt = !video.dataset.alt && imgAltSrc(src);
-    if (alt) { video.dataset.alt = '1'; video.src = alt + BRAND_FILM_V; }
+    if (!video.getAttribute('src')) return;
+    console.warn('[brand-film] 讀取失敗：', queue[qi], video.error && video.error.code);
+    qi++;
+    if (qi < queue.length) { video.src = queue[qi] + BRAND_FILM_V; video.load(); }
     else wrap.classList.add('hidden');
   });
-  video.src = src + BRAND_FILM_V;
+  video.src = queue[0] + BRAND_FILM_V;
   wrap.classList.remove('hidden');
 }
 initBrandFilm();
