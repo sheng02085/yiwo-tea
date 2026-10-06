@@ -2588,8 +2588,18 @@ function vmSet(state, status, caption) {
   if (caption != null) vmEl('vm-caption').textContent = caption;
   if (state !== 'speaking-gemini') { cancelAnimationFrame(vmLevelRaf); vmEl('vm-orb').style.transform = ''; }
 }
-// 進入語音模式的提示音：用 Web Audio 現場合成，不用額外音檔。網址加 ?chime=bubble|bell|drop 可試聽不同音色（預設 bubble）
+// 進入語音模式的提示音：用 Web Audio 現場合成，不用額外音檔。網址加 ?chime=calm|bowl|bubble|bell|drop 可試聽不同音色（預設 calm）
 const VM_CHIMES = {
+  // 沉穩的低音：C3（131Hz）基音，疊上 2、3、4 倍泛音，手機小喇叭放不出基音時耳朵仍會聽成低音；起音柔、慢慢沉下去
+  calm:   [{ type: 'sine', f0: 131, at: 0, peak: 0.24, attack: 0.03, len: 1.2 },
+           { type: 'sine', f0: 262, at: 0, peak: 0.12, attack: 0.03, len: 1.0 },
+           { type: 'sine', f0: 393, at: 0, peak: 0.05, attack: 0.03, len: 0.7 },
+           { type: 'sine', f0: 524, at: 0, peak: 0.02, attack: 0.03, len: 0.5 }],
+  // 頌缽般的低鳴：D3 與相近音產生緩慢共鳴，加泛音讓手機也聽得到
+  bowl:   [{ type: 'sine', f0: 147, at: 0, peak: 0.2, attack: 0.05, len: 1.6 },
+           { type: 'sine', f0: 148.5, at: 0, peak: 0.1, attack: 0.05, len: 1.6 },
+           { type: 'sine', f0: 294, at: 0, peak: 0.08, attack: 0.05, len: 1.2 },
+           { type: 'sine', f0: 397, at: 0, peak: 0.025, attack: 0.05, len: 0.8 }],
   // 柔和上滑的「啵～」：像 Gemini 開啟語音時那種輕盈的上揚音
   bubble: [{ type: 'sine', f0: 440, f1: 880, glide: 0.16, at: 0, peak: 0.14, attack: 0.03, len: 0.42 },
            { type: 'sine', f0: 880, f1: 1760, glide: 0.16, at: 0, peak: 0.035, attack: 0.03, len: 0.30 }],
@@ -2599,7 +2609,7 @@ const VM_CHIMES = {
   // 水滴般的短促「咚」：快速下滑後收尾
   drop:   [{ type: 'sine', f0: 1200, f1: 520, glide: 0.09, at: 0, peak: 0.15, attack: 0.005, len: 0.28 }]
 };
-const VM_CHIME = VM_CHIMES[new URLSearchParams(location.search).get('chime')] ? new URLSearchParams(location.search).get('chime') : 'bubble';
+const VM_CHIME = VM_CHIMES[new URLSearchParams(location.search).get('chime')] ? new URLSearchParams(location.search).get('chime') : 'calm';
 function vmChime() {
   ttsUnlock();
   if (!ttsCtx) return 0;
@@ -2618,7 +2628,7 @@ function vmChime() {
       o.start(t); o.stop(t + n.len + 0.02);
       end = Math.max(end, n.at + n.len);
     });
-    return Math.round(Math.min(end, 0.45) * 1000) + 40;   // 響完（或主要部分結束）才開始聆聽，免得麥克風收到提示音
+    return Math.round(Math.min(end, 0.55) * 1000) + 40;   // 響完（或主要部分結束）才開始聆聽，免得麥克風收到提示音
   } catch (e) { return 0; }
 }
 function vmOpen(key) {
