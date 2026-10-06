@@ -432,7 +432,7 @@ AI 問答提供動態建議按鈕。
 * 不支援時：只有瀏覽器有 `SpeechRecognition` 才在 `<html>` 加 `.can-voice` 顯示麥克風；LINE／Facebook／Instagram 內建瀏覽器一律不顯示；啟動後回報 `service-not-allowed`／`language-not-supported` 也會收起麥克風。文字聊天完全不受影響
 * 錯誤提示放在輸入框 placeholder（沒權限、沒聽清楚），3.5 秒後還原
 * 朗讀聲音（2026-10-06 調柔和）：`voiceScore()` 依自然程度挑聲音，順序約為 Edge 線上 Natural 女聲（曉臻／曉雨）＞ iOS／Mac 增強版美佳 ＞ Google 國語（臺灣）＞ 其他中文聲音，避開 Zhiwei、Hanhan 等機械感男聲／舊聲音；語速 0.92、音調 1.04；`ttsClean()` 拿掉『』「」與括號補充、／唸成「或」、～唸成「到」；`ttsSentences()` 一句一句排隊唸（短句併入前句），停頓較自然也避開 Chrome 長句截斷
-* **Gemini 語音朗讀（2026-10-06，測試版）**：語音提問的回覆優先用 Gemini TTS 唸（`voicePrepare()` → `geminiStream()`），模型 `gemini-3.8-flash-tts`；使用者要「溫柔的女生聲音」，預設 `Achernar`（輕柔女聲，2026-10-06 由 Vindemiatrix 改），語氣用 `speech_metadata.style`（`TTS_STYLE`，明確要求年輕女生、溫柔帶微笑）；測試版網址加 `?voice=` 可試聽 `TTS_VOICES` 裡的其他女聲，標示會顯示目前聲音名稱
+* **Gemini 語音朗讀（2026-10-06，測試版）**：語音提問的回覆優先用 Gemini TTS 唸（`voicePrepare()` → `geminiStream()`），模型 `gemini-3.8-flash-tts`；使用者要「溫柔的女生聲音」、再指定「接近 Siri」，預設 `Erinome`（清晰女聲，2026-10-06 由 Vindemiatrix → Achernar → Erinome），語氣用 `speech_metadata.style`（`TTS_STYLE`，要求像 Siri 的年輕女性語音助理：咬字清楚、親切平穩）；Siri 本身的聲音網頁拿不到，只能用 Gemini 聲音模仿；測試版網址加 `?voice=` 可試聽 `TTS_VOICES` 裡的其他女聲，標示會顯示目前聲音名稱
   * 改用 **Interactions API 串流**（`POST /v1beta/interactions`，`stream: true`，SSE `step.delta` 帶 base64 的 24kHz 16-bit PCM），收到第一段就播；原本的 generateContent 要等整段產生完，實機常超過 8 秒逾時
   * Worker：網站送 `interactions: true` 時，Worker 改呼叫 Interactions API（金鑰放 `x-goog-api-key` header）並把回應串流原樣轉回；文字對話不變。完整程式碼存在專案檔案 `worker/tea-worker.js`，要貼到 Cloudflare 後台的 `tea` Worker
   * `ttsUnlock()` 在按麥克風當下喚醒 AudioContext（iOS 才放得出聲）；片段依序排在 AudioContext 時間軸上播放（`pcmChunk()` 處理切在樣本中間的奇數 byte）

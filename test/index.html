@@ -2285,14 +2285,15 @@ function ttsSentences(text) {
    額度用完、Worker 還沒更新、第一段聲音超過 10 秒沒來或任何錯誤 → 這一則改用手機內建聲音（speakText）；
    被限流（429）後 10 分鐘內直接用手機聲音，不再空等 */
 const TTS_MODEL = 'gemini-3.8-flash-tts';
-// Gemini 內建女聲候選：Achernar（輕柔）、Vindemiatrix（溫柔）、Sulafat（溫暖）、Despina（圓潤）、Callirrhoe（隨和）
-// 測試版可在網址加 ?voice=聲音名稱 直接試聽比較，例如 test/?voice=Sulafat
-const TTS_VOICES = ['Achernar', 'Vindemiatrix', 'Sulafat', 'Despina', 'Callirrhoe'];
+// 使用者要「接近 Siri」：清楚、親切、平穩的女聲。Gemini 內建女聲候選：
+// Erinome（清晰，預設）、Despina（圓潤）、Autonoe（明亮）、Achernar（輕柔）、Vindemiatrix（溫柔）、Sulafat（溫暖）
+// 測試版可在網址加 ?voice=聲音名稱 直接試聽比較，例如 test/?voice=Despina
+const TTS_VOICES = ['Erinome', 'Despina', 'Autonoe', 'Achernar', 'Vindemiatrix', 'Sulafat'];
 const TTS_VOICE = (() => {
   try { const v = new URLSearchParams(location.search).get('voice'); if (v && TTS_VOICES.includes(v)) return v; } catch (e) {}
-  return 'Achernar';
+  return 'Erinome';
 })();
-const TTS_STYLE = '年輕女生的聲音，溫柔、輕柔、帶著微笑，像懂茶的好朋友在身邊輕聲聊天；臺灣口音的國語，語速稍慢、自然流暢，不要太正式';
+const TTS_STYLE = '像 iPhone 的 Siri 那樣的年輕女性語音助理：咬字清楚、親切溫和、語調平穩自然，帶一點微笑；臺灣口音的國語，語速適中、流暢不拖拍';
 const TTS_FIRST_AUDIO_TIMEOUT = 10000;
 const GEMINI_TTS_MS_PER_CHAR = 230;   // 串流還沒結束、不知道總長度前，先用這個速度逐字；結束後依實際長度校正
 let ttsCtx = null, ttsSeq = 0, ttsOffUntil = 0, ttsSources = [], ttsStream = null, ttsAnalyser = null;
