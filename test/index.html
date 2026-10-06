@@ -3184,15 +3184,23 @@ function renderStamps(justGot) {
       <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold">CERTIFICATE</div>
       <div class="font-serif text-xl font-bold mt-1">一握體驗館・製茶證書</div>
       <p class="text-xs text-white/65 mt-2 leading-relaxed">${CERT_BODY.join('<br>')}</p>
+      <div id="cert-tea" class="mt-3"></div>
       <div class="text-[11px] text-white/40 mt-3">一握茶研所　${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}</div>
       <button onclick="shareCert()" class="mt-4 px-5 py-2 rounded-full text-xs font-bold bg-tea-gold text-tea-dark btn-bounce">儲存證書，分享給朋友吧！</button>
       <div id="cert-msg" class="text-[11px] text-white/50 mt-2 h-4"></div>
       <button onclick="stampReset()" class="text-[11px] text-white/40 underline mt-2">重新集章</button>
     </div>`;
+    const myTea = certMyTea();
+    if (myTea) {   // 茶名是使用者自己打的字：用 textContent 放，不經過 innerHTML
+      const box = document.getElementById('cert-tea');
+      box.innerHTML = `<div class="text-[10px] text-tea-gold/80">我調的茶</div><div class="font-serif text-lg font-bold text-tea-gold"></div><div class="text-[10px] text-white/45"></div>`;
+      box.children[1].textContent = `「${myTea.name}」`;
+      box.children[2].textContent = certTeaDetail(myTea);
+    }
   } else cert.innerHTML = '';
 }
 /* ---------- 製茶證書：用 canvas 畫成一張圖片，手機跳出分享選單（可存到相簿或傳 LINE），電腦直接下載 ---------- */
-let certFile = null;
+let certFile = null, certGen = 0;   // certGen：換茶名時會重畫，只留最後一次畫的那張
 function certSpaced(ctx, text, x, y, gap) {
   const w = [...text].reduce((s, c) => s + ctx.measureText(c).width + gap, -gap);
   let cx = x - w / 2;
@@ -3207,13 +3215,16 @@ function certIcon(ctx, svg, cx, cy, size, color) {
   ctx.restore();
 }
 async function buildCert() {
+  const gen = ++certGen;
   // 先把畫上去的每個字的字型都載好（Google Fonts 依字分檔，沒載到的字會用系統字型畫，canvas 不會再補畫）
   const d0 = new Date(), dateText = `一握茶研所　${d0.getFullYear()}/${d0.getMonth() + 1}/${d0.getDate()}`;
+  const myTea = certMyTea(), teaName = myTea ? `「${myTea.name}」` : '', teaDetail = myTea ? certTeaDetail(myTea) : '';
   try { await Promise.all([
     document.fonts.load('700 66px "Noto Serif TC"', '一握體驗館・製茶證書'),
     document.fonts.load('700 36px "Noto Sans TC"', STAMP_DEFS.map(x => x.name).join('')),
     document.fonts.load('500 30px "Noto Sans TC"', 'CERTIFICATE'),
-    document.fonts.load('400 38px "Noto Sans TC"', CERT_BODY.join('') + dateText + '把佛手的溫潤，留給忙碌生活裡的你')
+    document.fonts.load('400 38px "Noto Sans TC"', CERT_BODY.join('') + dateText + '把佛手的溫潤，留給忙碌生活裡的你' + '我調的茶' + teaDetail),
+    document.fonts.load('700 50px "Noto Serif TC"', teaName || '茶')
   ]); } catch (e) {}
   const W = 1080, H = 1350, GOLD = '#D4AF37';
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -3248,16 +3259,27 @@ async function buildCert() {
     ctx.fillStyle = GOLD; ctx.font = '700 36px "Noto Sans TC", sans-serif';
     ctx.fillText(d.name, x, 710);
   });
+  // 有調茶取名：內文往上收一點，中間多一塊「我調的茶」
+  const y0 = myTea ? 800 : 830, gap = myTea ? 55 : 60;
   ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.font = '400 38px "Noto Sans TC", sans-serif';
-  CERT_BODY.forEach((t, i) => ctx.fillText(t, W / 2, 830 + i * 60));
+  CERT_BODY.forEach((t, i) => ctx.fillText(t, W / 2, y0 + i * gap));
+  if (myTea) {
+    ctx.fillStyle = 'rgba(212,175,55,.85)'; ctx.font = '400 28px "Noto Sans TC", sans-serif';
+    ctx.fillText('我調的茶', W / 2, 990);
+    ctx.fillStyle = GOLD; ctx.font = '700 50px "Noto Serif TC", serif';
+    ctx.fillText(teaName, W / 2, 1048);
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = '400 28px "Noto Sans TC", sans-serif';
+    ctx.fillText(teaDetail, W / 2, 1102);
+  }
   ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = '400 32px "Noto Sans TC", sans-serif';
-  ctx.fillText(dateText, W / 2, 1070);
+  ctx.fillText(dateText, W / 2, myTea ? 1170 : 1070);
   ctx.fillStyle = 'rgba(212,175,55,.8)'; ctx.font = '400 28px "Noto Sans TC", sans-serif';
-  ctx.fillText('把佛手的溫潤，留給忙碌生活裡的你', W / 2, 1180);
+  ctx.fillText('把佛手的溫潤，留給忙碌生活裡的你', W / 2, myTea ? 1235 : 1180);
   const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
   if (!blob) throw new Error('toBlob failed');
-  certFile = new File([blob], '一握體驗館_製茶證書.png', { type: 'image/png' });
-  return certFile;
+  const file = new File([blob], '一握體驗館_製茶證書.png', { type: 'image/png' });
+  if (gen === certGen) certFile = file;
+  return file;
 }
 function certDownload(file) {
   const url = URL.createObjectURL(file);
@@ -3283,15 +3305,16 @@ async function shareCert() {
   certBusy = true;
   const msg = document.getElementById('cert-msg');
   try {
-    if (!certFile) { if (msg) msg.innerText = '證書產生中…'; await buildCert(); }
-    const data = { files: [certFile], title: '一握體驗館・製茶證書' };
+    let file = certFile;
+    if (!file) { if (msg) msg.innerText = '證書產生中…'; file = await buildCert(); }
+    const data = { files: [file], title: '一握體驗館・製茶證書' };
     if (navigator.canShare && navigator.canShare(data)) {
       try { await navigator.share(data); if (msg) msg.innerText = ''; return; }
       catch (e) { if (e.name === 'AbortError') { if (msg) msg.innerText = ''; return; } }
     }
     const phone = IN_APP_BROWSER || matchMedia('(pointer: coarse)').matches;
-    if (phone) { certShowImage(certFile); if (msg) msg.innerText = ''; return; }
-    certDownload(certFile);
+    if (phone) { certShowImage(file); if (msg) msg.innerText = ''; return; }
+    certDownload(file);
     if (msg) msg.innerText = '證書圖片已下載';
   } catch (e) {
     console.warn('[cert]', e);
@@ -3301,7 +3324,7 @@ async function shareCert() {
 
 function stampReset() {
   stamps = [];
-  try { sessionStorage.removeItem('yw-stamps'); sessionStorage.removeItem('yw-procstep'); } catch (e) {}
+  try { sessionStorage.removeItem('yw-stamps'); sessionStorage.removeItem('yw-procstep'); sessionStorage.removeItem('yw-mytea'); } catch (e) {}
   // 三關的進度也一起歸零，不然製茶工序還顯示「完成了」卻沒有章、下一站按不過去
   procReset(); quizReset(); labReset(true);
   renderStamps();
@@ -3804,15 +3827,27 @@ async function labNameAI() {
   catch (e) { console.warn('[lab-name]', e); }
   if (req !== labNameReq) return;   // 這段時間已經重新調了一杯或又按了一次：舊的名字不要蓋上去
   if (name.length < 2 || LAB_NAME_BAN.test(name)) name = labNameFallback();
-  labName = name; labNameState = 'done'; labNameRender();
+  labName = name; labNameState = 'done'; labNameRender(); labNameStore();
 }
+// 取好（或改好）的茶名記到這次瀏覽：集滿三個章時印在製茶證書上；重新調一杯以最新的為準
+function labNameStore() {
+  if (!labName) return;
+  const myTea = { name: labName, ings: labPicked.map(id => LAB_INGS.find(x => x.id === id).name),
+    temp: +document.getElementById('lab-temp').value, time: +document.getElementById('lab-time').value };
+  try { sessionStorage.setItem('yw-mytea', JSON.stringify(myTea)); } catch (e) {}
+  if (stamps.length === STAMP_DEFS.length) renderStamps();   // 證書已經出現：換上新的茶名、重畫證書圖片
+}
+function certMyTea() {
+  try { const t = JSON.parse(sessionStorage.getItem('yw-mytea') || 'null'); return t && t.name ? t : null; } catch (e) { return null; }
+}
+function certTeaDetail(t) { return `${t.ings.length ? t.ings.join('・') : '佛手烏龍'}｜${t.temp}°C・${t.time} 分鐘`; }
 function labNameEdit() { labNameReq++; labNameState = 'edit'; labNameRender(); }
 function labNameSave() {
   const inp = document.getElementById('lab-name-input');
   const v = toTrad(noEmoji(inp ? inp.value : '')).trim().slice(0, 8);
   if (v) labName = v;
   labNameState = labName ? 'done' : 'idle';
-  labNameRender();
+  labNameRender(); labNameStore();
 }
 function labNameRender() {
   const box = document.getElementById('lab-name-box');
