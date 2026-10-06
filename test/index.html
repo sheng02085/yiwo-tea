@@ -2277,7 +2277,7 @@ function ttsSentences(text) {
 const TTS_MODEL = 'gemini-3.8-flash-tts';
 const TTS_VOICE = 'Vindemiatrix';   // Gemini 內建聲音裡「溫柔」型的女聲
 const TTS_STYLE = '請用溫柔、放鬆、像懂茶的朋友在身邊輕聲聊天的語氣，以臺灣口音的國語，自然流暢地唸出下面這段話：';
-const TTS_TIMEOUT = 8000;
+const TTS_TIMEOUT = 20000;   // 2026-10-06：8 秒常逾時，先放寬到 20 秒並在標示顯示實際等待秒數，查出 Gemini TTS 實際要多久
 let ttsCtx = null, ttsSrc = null, ttsSeq = 0, ttsOffUntil = 0;
 
 // 必須在使用者點擊當下建立／喚醒 AudioContext，iOS 之後才放得出聲音
@@ -2358,9 +2358,13 @@ async function voicePrepare(key, text) {
   const seq = ttsSeq;
   const chars = [...text].length;
   try {
-    const buf = await geminiFetch(ttsClean(text));
+    const t0 = performance.now();
+    const secs = () => ((performance.now() - t0) / 1000).toFixed(1);
+    let buf;
+    try { buf = await geminiFetch(ttsClean(text)); }
+    catch (e) { e.message += '，等了 ' + secs() + ' 秒'; throw e; }
     if (seq !== ttsSeq) return null;     // 等待期間使用者又按了麥克風或離開
-    return { by: 'gemini', msPerChar: buf.duration * 1000 / chars, start: () => playBuffer(buf) };
+    return { by: 'gemini', why: '等了 ' + secs() + ' 秒', msPerChar: buf.duration * 1000 / chars, start: () => playBuffer(buf) };
   } catch (e) {
     console.warn('[tts] 改用手機內建聲音：', e.message);
     if (seq !== ttsSeq || !CAN_SPEAK) return null;
@@ -2375,7 +2379,7 @@ function voiceStart(voice, bubble) {
   vmOnSpeak(voice.by);
   const tag = document.createElement('div');
   tag.className = 'tts-tag';
-  tag.textContent = voice.by === 'gemini' ? 'Gemini 語音朗讀' : '手機內建語音朗讀' + (voice.why ? '（' + voice.why + '）' : '');
+  tag.textContent = (voice.by === 'gemini' ? 'Gemini 語音朗讀' : '手機內建語音朗讀') + (voice.why ? '（' + voice.why + '）' : '');
   bubble.parentElement.after(tag);
   return Math.max(40, Math.min(400, voice.msPerChar));
 }
