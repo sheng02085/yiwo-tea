@@ -2126,25 +2126,72 @@ const VOICE_CHAT = {
 const voiceTurn = {};          // 這一題是不是用語音問的（是的話回覆要唸出來）
 let voiceRec = null;
 
-// 挑一個中文（優先台灣）的語音；部分瀏覽器的語音清單是非同步載入
+// 挑聲音：同樣是中文，各家瀏覽器內建的聲音品質差很多，依「自然程度」打分數挑最好的一個
+// - Edge 的 Microsoft 線上「Natural」聲音（曉臻 HsiaoChen、曉雨 HsiaoYu）最像真人
+// - iOS / Mac 有下載「增強／高品質」版的美佳（Meijia）其次
+// - Chrome 的「Google 國語（臺灣）」、Android 的 Google 語音也算自然
+// - 偏好溫柔的女聲，避開機械感重的舊版桌面聲音（Zhiwei、Hanhan 等）
 let ttsVoice = null;
+function voiceScore(v) {
+  const n = v.name, lang = v.lang.replace('_', '-');
+  let sc = 0;
+  if (/^zh-TW/i.test(lang)) sc += 100;
+  else if (/^(zh-HK|zh-Hant|cmn-Hant)/i.test(lang)) sc += 40;
+  else if (/^(zh|cmn)/i.test(lang)) sc += 30;
+  else return -1;
+  if (/Natural|Online|Neural/i.test(n)) sc += 60;
+  if (/Enhanced|Premium|增強|高品質|優化/i.test(n)) sc += 50;
+  if (/HsiaoChen|HsiaoYu|曉臻|曉雨|Meijia|美佳|Google|Ya-?Ling|Tingting|婷婷/i.test(n)) sc += 25;
+  if (/Zhiwei|YunJhe|Hanhan|Danny|male|男/i.test(n)) sc -= 40;
+  if (!v.localService) sc += 5;
+  return sc;
+}
 function pickVoice() {
   if (!CAN_SPEAK) return;
-  const vs = speechSynthesis.getVoices();
-  ttsVoice = vs.find(v => v.lang === 'zh-TW') || vs.find(v => /^zh[-_]TW/i.test(v.lang))
-    || vs.find(v => /^zh[-_](HK|Hant)/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+  const vs = speechSynthesis.getVoices().filter(v => voiceScore(v) >= 0);
+  vs.sort((x, y) => voiceScore(y) - voiceScore(x));
+  ttsVoice = vs[0] || null;
 }
 if (CAN_SPEAK) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+// 朗讀前整理文字：拿掉唸出來很奇怪的符號，讓斷句停頓自然
+function ttsClean(text) {
+  return String(text)
+    .replace(/[『』「」《》〈〉【】"“”]/g, '')
+    .replace(/[／/]/g, '或')
+    .replace(/[～~]/g, '到')
+    .replace(/[（(][^）)]*[）)]/g, '')      // 括號補充說明不唸
+    .replace(/[•·・]/g, '，')
+    .replace(/\s*\n+\s*/g, '。')
+    .replace(/([。！？，、；])\1+/g, '$1')
+    .trim();
+}
+// 依句子切開一句一句唸：句與句之間有自然停頓，也避開 Chrome 長句唸到一半被截斷的問題
+function ttsSentences(text) {
+  const parts = ttsClean(text).match(/[^。！？；!?;]+[。！？；!?;]?/g) || [];
+  // 太短的句子併到前一句，避免一直停頓
+  return parts.reduce((out, p) => {
+    p = p.trim(); if (!p) return out;
+    if (out.length && (p.length < 6 || out[out.length - 1].length < 6)) out[out.length - 1] += p;
+    else out.push(p);
+    return out;
+  }, []);
+}
 
 function stopSpeaking() { if (CAN_SPEAK) speechSynthesis.cancel(); }
 function speakText(text) {
   if (!CAN_SPEAK || !text) return;
   stopSpeaking();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'zh-TW';
-  if (ttsVoice) u.voice = ttsVoice;
-  u.rate = 1;
-  speechSynthesis.speak(u);
+  if (!ttsVoice) pickVoice();
+  ttsSentences(text).forEach(line => {
+    const u = new SpeechSynthesisUtterance(line);
+    u.lang = ttsVoice ? ttsVoice.lang : 'zh-TW';
+    if (ttsVoice) u.voice = ttsVoice;
+    u.rate = 0.92;     // 稍微放慢，聽起來比較從容、溫柔
+    u.pitch = 1.04;    // 音調略提一點點，比較柔和（太高會不自然）
+    u.volume = 0.95;
+    speechSynthesis.speak(u);
+  });
 }
 // 回覆出現時呼叫：只有語音提問的那一題才唸
 function voiceReply(key, text) {

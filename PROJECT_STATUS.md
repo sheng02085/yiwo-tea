@@ -431,6 +431,8 @@ AI 問答提供動態建議按鈕。
 * 聆聽中：麥克風鍵變金色，外圈光環擴散（transform / opacity，只在聆聽時播）；減少動態效果改成靜態外圈
 * 不支援時：只有瀏覽器有 `SpeechRecognition` 才在 `<html>` 加 `.can-voice` 顯示麥克風；LINE／Facebook／Instagram 內建瀏覽器一律不顯示；啟動後回報 `service-not-allowed`／`language-not-supported` 也會收起麥克風。文字聊天完全不受影響
 * 錯誤提示放在輸入框 placeholder（沒權限、沒聽清楚），3.5 秒後還原
+* 朗讀聲音（2026-10-06 調柔和）：`voiceScore()` 依自然程度挑聲音，順序約為 Edge 線上 Natural 女聲（曉臻／曉雨）＞ iOS／Mac 增強版美佳 ＞ Google 國語（臺灣）＞ 其他中文聲音，避開 Zhiwei、Hanhan 等機械感男聲／舊聲音；語速 0.92、音調 1.04；`ttsClean()` 拿掉『』「」與括號補充、／唸成「或」、～唸成「到」；`ttsSentences()` 一句一句排隊唸（短句併入前句），停頓較自然也避開 Chrome 長句截斷
+* 瀏覽器內建聲音的自然度有上限，iPhone 若要更自然：設定 → 輔助使用 → 朗讀內容 → 聲音 → 中文（台灣）→ 下載「美佳（增強）」
 * iOS：在按麥克風當下先播一段靜音來解鎖 `speechSynthesis`，否則 AI 回覆回來後 iOS 不讓出聲
 * 瀏覽器支援（實際能否辨識依瀏覽器而定）：Chrome（桌機／Android）、Edge、iOS 14.5+ Safari 可用；Firefox、LINE 內建瀏覽器不支援（只剩文字）。Chrome 的語音辨識會把聲音送到 Google 伺服器處理
 
