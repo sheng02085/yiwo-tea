@@ -3922,9 +3922,7 @@ function labShowResult() {
       <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold mt-3">YOUR TEA</div>
       <div id="lab-name-box" class="mt-2 min-h-[4.25rem]"></div>
       <div class="text-xs text-white/55 mt-2">你調出了一杯${flavorText}</div>
-      <div class="font-serif text-xl font-bold mt-1.5">${exact ? '跟' : '最接近'}「${tea.name}」${exact ? '的配方一模一樣！' : ''}</div>
-      <p class="text-xs mt-2" style="color:${tea.color}">「${tea.slogan || tea.series}」</p>
-      <p class="text-[11px] text-white/50 mt-3 leading-relaxed">${tip.good ? '沖泡條件也剛剛好，這杯茶的香氣會很漂亮。' : tip.text}</p>
+      <div class="font-serif text-xl font-bold mt-1.5">${exact ? '跟' : '最接近'}<span style="color:${tea.color}">「${tea.name}」</span>${exact ? '<span class="whitespace-nowrap">的配方一模一樣！</span>' : ''}</div>
       <div class="flex flex-wrap justify-center gap-2 mt-5">
         <button onclick="labOpenTea('${tea.id}')" class="px-5 py-2 rounded-full text-sm font-bold btn-bounce" style="background:${tea.color}; color:#12261A">看看「${tea.name}」</button>
         <button onclick="labModalClose(); labReset()" class="px-5 py-2 rounded-full text-sm font-bold border border-white/30 btn-bounce">重新調一杯</button>
