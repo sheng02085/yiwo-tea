@@ -2510,6 +2510,14 @@ function voiceUI(btn, on) {
   btn.setAttribute('aria-label', on ? '停止聆聽' : '語音輸入');
 }
 function voiceStop() { if (voiceRec) { try { voiceRec.stop(); } catch (e) {} } }
+// 直接中止聆聽、丟掉已聽到的內容（離開語音模式用，不會把半句話送出去）
+function voiceAbort() {
+  const rec = voiceRec;
+  if (!rec) return;
+  rec.cancelled = true;
+  try { rec.abort(); } catch (e) { try { rec.stop(); } catch (e2) {} }
+  voiceRec = null;
+}
 
 // hooks（語音模式用，可省略）：interim(文字)、fail(原因)、sent(送出後的 Promise)
 function voiceToggle(key, btn, hooks) {
@@ -2555,7 +2563,8 @@ function voiceToggle(key, btn, hooks) {
   };
   rec.onend = () => {
     voiceUI(btn, false);
-    voiceRec = null;
+    if (voiceRec === rec) voiceRec = null;
+    if (rec.cancelled) { input.value = ''; input.placeholder = ph; return; }
     const text = (finalText || input.value).trim();
     if (errMsg) {
       input.value = '';
@@ -2652,7 +2661,7 @@ function vmOpen(key) {
 }
 function vmClose() {
   vmKey = null;
-  voiceStop();
+  voiceAbort();
   stopSpeaking();
   const box = vmEl('voice-mode');
   box.classList.remove('on');
@@ -2702,6 +2711,8 @@ function vmListen() {
       if (voiceSpeechDone) await voiceSpeechDone;  // 聲音唸完
       if (!vmKey || key !== vmKey) return;
       if (vmEl('voice-mode').dataset.state === 'thinking') { vmSet('idle', '連線有點問題，點一下光球再試一次', ''); return; }
+      // 推薦了茶款就先停止收音（使用者不一定會繼續問），點光球才再聽；字幕和傳送門按鈕留著
+      if (vmEl('vm-tea').childElementCount) { vmSet('idle', '想再聊就點一下光球', null); return; }
       vmListen();
     }
   });
@@ -2740,8 +2751,8 @@ function vmCaptionFollow() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && vmKey) vmClose(); });
 
 // 離開頁面、切換分頁時停止聆聽與朗讀
-window.addEventListener('pagehide', () => { voiceStop(); stopSpeaking(); });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { voiceStop(); stopSpeaking(); } });
+window.addEventListener('pagehide', () => { voiceAbort(); stopSpeaking(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { voiceAbort(); stopSpeaking(); } });
 
 /* ---------------- 產品介紹頁問答 ---------------- */
 async function askProduct(presetText, srcEl) {
