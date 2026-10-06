@@ -2914,8 +2914,63 @@ async function askProduct(presetText, srcEl) {
 let companionStage = 0;
 let companionHistory = [];
 
-function startCompanion() {
-  addBubble('companion-log', 'bot', '嗨，今天想喝一杯什麼樣的茶呢？可以跟我說說你今天的狀態或心情', yiIcon('leaf', '#6EE7B7'));
+/* ---------- 節氣茶語：開場白依今天的日期、節氣、時段由 AI 寫 ----------
+   AI 不知道今天幾號：日期、節氣、時段都由網頁用裝置時間算好再交給 AI。
+   節氣用固定日期表（每年差不到一天，所以說「前後」）；不抓天氣，避免跳出定位權限 */
+const SOLAR_TERMS = [[1,5,'小寒'],[1,20,'大寒'],[2,4,'立春'],[2,19,'雨水'],[3,5,'驚蟄'],[3,20,'春分'],[4,5,'清明'],[4,20,'穀雨'],
+  [5,5,'立夏'],[5,21,'小滿'],[6,5,'芒種'],[6,21,'夏至'],[7,7,'小暑'],[7,22,'大暑'],[8,7,'立秋'],[8,23,'處暑'],
+  [9,7,'白露'],[9,23,'秋分'],[10,8,'寒露'],[10,23,'霜降'],[11,7,'立冬'],[11,22,'小雪'],[12,7,'大雪'],[12,21,'冬至']];
+function teaMoment(d) {
+  d = d || new Date();
+  const md = (d.getMonth() + 1) * 100 + d.getDate();
+  let i = SOLAR_TERMS.length - 1;   // 1/5 小寒以前還是去年的冬至
+  SOLAR_TERMS.forEach((t, k) => { if (t[0] * 100 + t[1] <= md) i = k; });
+  const nx = SOLAR_TERMS[(i + 1) % SOLAR_TERMS.length];
+  const nxDate = new Date(d.getFullYear() + (i === SOLAR_TERMS.length - 1 && d.getMonth() === 11 ? 1 : 0), nx[0] - 1, nx[1]);
+  const daysToNext = Math.round((nxDate - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  const h = d.getHours();
+  const slot = h >= 5 && h < 11 ? '早上' : h < 14 && h >= 11 ? '中午' : h >= 14 && h < 18 ? '下午' : h >= 18 && h < 23 ? '晚上' : '深夜';
+  const term = SOLAR_TERMS[i][2];
+  return { date: `${d.getMonth() + 1}月${d.getDate()}日`, term, next: nx[2], daysToNext, slot,
+    text: `今天是${d.getMonth() + 1}月${d.getDate()}日，正值「${term}」節氣${daysToNext <= 3 ? `，再過${daysToNext}天就是「${nx[2]}」` : ''}，現在是${slot}` };
+}
+const GREET_ASK = '今天想喝一杯什麼樣的茶呢？可以跟我說說你今天的狀態或心情';
+const GREET_BAN = /養生|進補|潤燥|潤肺|補氣|補血|排毒|祛濕|去濕|降火|退火|驅寒|暖身|療|健康|功效|保健|下雨|晴|颱風|氣溫|度C|°/;
+async function companionGreeting() {
+  const tm = teaMoment();
+  const key = 'yw-greet-' + tm.date + tm.slot;
+  try { const c = sessionStorage.getItem(key); if (c) return c; } catch (e) {}
+  const fallback = `${tm.slot === '深夜' ? '夜深了' : tm.slot + '好'}，${tm.term}時節，${GREET_ASK}`;
+  const prompt = `你是「一握茶研所」的 AI 茶伴，正在跟剛打開對話的客人打招呼。
+${tm.text}。
+請寫一段開場白：
+- 用一句話自然地帶到現在的時段和節氣，可以借用這個節氣在傳統文化裡的季節意象（例如寒露的秋意、清明的春雨）。
+- 你不知道今天實際的天氣，不要描述天氣、氣溫或下不下雨。
+- 不要推薦任何茶款，也不要提任何功效、養生、進補、保健之類的說法。
+- 最後一句固定是：「${GREET_ASK}」
+- 全部 60 字以內，純文字，不用 Markdown，不用 emoji。
+【語言規範】只能使用台灣繁體中文，絕對不可以出現任何簡體字。`;
+  try {
+    const raw = await Promise.race([
+      callGemini(prompt, [{ role: 'user', parts: [{ text: '請打招呼' }] }]),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('greet timeout')), 8000))
+    ]);
+    let t = plainReply(noEmoji(raw)).replace(/\s*\n\s*/g, '').trim();
+    if (!t || t.length > 90 || GREET_BAN.test(t.replace(GREET_ASK, ''))) return fallback;
+    if (!t.includes('今天想喝')) t += GREET_ASK;
+    try { sessionStorage.setItem(key, t); } catch (e) {}
+    return t;
+  } catch (e) { console.warn('[greet]', e); return fallback; }
+}
+async function startCompanion() {
+  chatBusy.companion = true;   // 開場白還沒出來前先不收訊息，不然問題會排在招呼語前面
+  addTyping('companion-log');
+  const text = await companionGreeting();
+  await removeTyping('companion-log');
+  const bubble = addBubble('companion-log', 'bot', '');
+  await typeIntoBubble('companion-log', bubble, text);
+  chatBusy.companion = false;
+  bubble.insertAdjacentHTML('beforeend', yiIcon('leaf', '#6EE7B7'));
   renderChips(['想放鬆一下', '最近外食比較多', '想喝點溫暖的']);
 }
 
@@ -2967,6 +3022,7 @@ ${dbText}
 【語言規範】一律使用臺灣繁體中文與臺灣慣用語回答，即使使用者用簡體字、其他語言或語音辨識出的錯字提問，也只能用繁體中文回答，絕對不能出現任何簡體字。
 請以專業、簡潔、像品茶師介紹茶葉的語氣回覆，格式參考：「今天的你可以試試『茶名』，用一句話說明為什麼適合、能帶來什麼感受。」
 只推薦清單裡的一款，茶名一定要寫完整（例如『一握・輕盈』），不要編造清單以外的茶。控制在 80 字以內，用純文字，不要使用 Markdown 符號，不要條列，不要使用任何 emoji 表情符號。
+現在的時間：${teaMoment().text}。推薦時可以順口帶到時段或節氣的氛圍（只講季節意象，不要描述實際天氣，也不要扯到養生進補）。
 使用者前面說過的話你都記得，如果使用者接著問「這款茶的介紹」「為什麼推薦這款」之類的問題，直接針對你剛剛推薦的那一款回答，不要反問使用者是指哪一款。
 【重要規範】絕對不能使用「燃脂」「排油」「減肥」「瘦身」「代謝」「消脂」等暗示醫療或減重功效的字眼，即使使用者主動問也一樣。只能描述風味與情境上的舒適感（例如餐後清爽），並清楚說明茶飲不具醫療或減重功效，不要用任何轉折語氣暗示它「還是有幫助」。
 【輸出格式】回答結束後，另起一行，固定用這個格式列出 3 個使用者可能想接著說的話：
@@ -3712,6 +3768,78 @@ function labBrew() {
   }, 550 + POUR_MS + 300);
   labLater(() => labBrewDone(btn), 550 + POUR_MS + 700);
 }
+/* ---------- AI 茶師取名：調好一杯茶，AI 先取一個茶名，使用者可以自己改，或請 AI 換一個 ----------
+   AI 連不上時用配料拼出一個名字，畫面不會卡在「取名中」 */
+let labName = '', labNameState = 'idle', labNameReq = 0;   // state：idle／loading／done／edit
+const LAB_NAME_BAN = /嫣然|輕盈|暖陽|養生|養顏|補氣|補血|療|治病|助眠|排毒|瘦身|美白|美顏|降火|降壓|退火|防癌|功效|保健/;
+function labNameFallback() {
+  if (!labPicked.length) return '佛手清韻';
+  const v = labFlavor();
+  const top = LAB_DIMS.filter(k => k !== '茶香').sort((a, b) => v[b] - v[a])[0];
+  const tail = { 花香: '花影', 果香: '果韻', 甜香: '蜜語', 清爽: '清風', 暖意: '爐暖' }[top];
+  return LAB_INGS.find(x => x.id === labPicked[0]).name + tail;
+}
+function labNameClean(t) {
+  const line = noEmoji(plainReply(String(t))).split('\n').map(x => x.trim()).find(Boolean) || '';
+  return line.replace(/^(茶名|名字|名稱)\s*[:：]\s*/, '').replace(/[「」『』《》"'“”‘’.,，。、！!？?：:；;（）()\s]/g, '').slice(0, 8);
+}
+async function labNameAI() {
+  const req = ++labNameReq;
+  labNameState = 'loading'; labNameRender();
+  const t = +document.getElementById('lab-temp').value, m = +document.getElementById('lab-time').value;
+  const v = labFlavor();
+  const flav = LAB_DIMS.filter(k => v[k] > 0).map(k => `${k}${v[k]}`).join('、');
+  const ings = labPicked.map(id => LAB_INGS.find(x => x.id === id).name).join('、') || '不加配料';
+  const prompt = `你是「一握茶研所」的茶師，幫客人親手調的一杯佛手烏龍茶取一個茶名。
+規則：
+- 茶名 2～4 個中文字，典雅、有畫面感，可以借用配料的顏色、香氣、季節或詩意意象。
+- 只回茶名本身：不要引號、標點、拼音、說明或任何其他文字。
+- 不可以用「嫣然」「輕盈」「暖陽」（這三個是品牌既有茶款）。
+- 不可以出現任何功效、保健或療效相關字眼（例如養生、補氣、助眠、美顏）。
+- 每次都取不同的名字${labName ? `，這次不要再用「${labName}」` : ''}。
+【語言規範】只能使用台灣繁體中文，絕對不可以出現任何簡體字。`;
+  const ask = `配料：${ings}；水溫 ${t}°C；浸泡 ${m} 分鐘；風味分數：${flav}。請取茶名。`;
+  let name = '';
+  try { name = labNameClean(await callGemini(prompt, [{ role: 'user', parts: [{ text: ask }] }])); }
+  catch (e) { console.warn('[lab-name]', e); }
+  if (req !== labNameReq) return;   // 這段時間已經重新調了一杯或又按了一次：舊的名字不要蓋上去
+  if (name.length < 2 || LAB_NAME_BAN.test(name)) name = labNameFallback();
+  labName = name; labNameState = 'done'; labNameRender();
+}
+function labNameEdit() { labNameReq++; labNameState = 'edit'; labNameRender(); }
+function labNameSave() {
+  const inp = document.getElementById('lab-name-input');
+  const v = toTrad(noEmoji(inp ? inp.value : '')).trim().slice(0, 8);
+  if (v) labName = v;
+  labNameState = labName ? 'done' : 'idle';
+  labNameRender();
+}
+function labNameRender() {
+  const box = document.getElementById('lab-name-box');
+  if (!box) return;
+  const btn = 'px-3 py-1 rounded-full border border-white/25 text-white/70 btn-bounce';
+  if (labNameState === 'loading') {
+    box.innerHTML = `<div class="text-[11px] text-white/45">為這杯茶取名</div>
+      <div class="font-serif text-2xl font-bold text-tea-gold/60 mt-1">茶師取名中…</div>`;
+  } else if (labNameState === 'edit') {
+    box.innerHTML = `<div class="text-[11px] text-white/45">幫這杯茶取個名字（最多 8 個字）</div>
+      <div class="flex justify-center items-center gap-2 mt-1.5">
+        <input id="lab-name-input" type="text" maxlength="8" autocomplete="off" class="w-40 h-10 rounded-full px-4 text-center font-serif font-bold text-tea-gold bg-white/10 border border-tea-gold/50 outline-none" style="font-size:16px"
+          onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229) labNameSave()">
+        <button onclick="labNameSave()" class="h-10 px-4 rounded-full text-xs font-bold bg-tea-gold text-tea-dark btn-bounce">確定</button>
+      </div>`;
+    const inp = document.getElementById('lab-name-input');
+    inp.value = labName; inp.focus({ preventScroll: true }); inp.select();
+  } else if (labNameState === 'done') {
+    box.innerHTML = `<div class="text-[11px] text-white/45">茶師為這杯茶取名</div>
+      <div id="lab-name-text" class="font-serif text-2xl font-bold text-tea-gold mt-1"></div>
+      <div class="flex justify-center gap-2 mt-2 text-[11px]">
+        <button onclick="labNameEdit()" class="${btn}">自己改名</button>
+        <button onclick="labNameAI()" class="${btn}">換一個</button>
+      </div>`;
+    document.getElementById('lab-name-text').textContent = `「${labName}」`;
+  } else box.innerHTML = '';
+}
 function labShowResult() {
   const v = labFlavor();
   const top = LAB_DIMS.filter(k => k !== '茶香' && v[k] > 0).sort((a, b) => v[b] - v[a]).slice(0, 2);
@@ -3733,6 +3861,7 @@ function labShowResult() {
         ${teaIconSVG(best, '#D4AF37', 'w-11 h-11')}
       </div>
       <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold mt-3">YOUR TEA</div>
+      <div id="lab-name-box" class="mt-2 min-h-[4.25rem]"></div>
       <div class="text-xs text-white/55 mt-2">你調出了一杯${flavorText}</div>
       <div class="font-serif text-xl font-bold mt-1.5">${exact ? '跟' : '最接近'}「${tea.name}」${exact ? '的配方一模一樣！' : ''}</div>
       <p class="text-xs mt-2" style="color:${tea.color}">「${tea.slogan || tea.series}」</p>
@@ -3744,6 +3873,7 @@ function labShowResult() {
       <button onclick="labModalClose(); labTab('quiz'); document.getElementById('st-quiz').scrollIntoView({behavior:'smooth', block:'start'})" class="mt-3 text-sm font-bold text-tea-gold btn-bounce">下一站：茶知識問答 →</button>`;
   } else {
     html = `<div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold">YOUR TEA</div>
+      <div id="lab-name-box" class="mt-2 min-h-[4.25rem]"></div>
       <div class="text-xs text-white/55 mt-2">你調出了一杯${flavorText}</div>
       <div class="font-serif text-xl font-bold mt-3">試試加入配料，找出你的那一握</div>
       <p class="text-[11px] text-white/50 mt-3 leading-relaxed">${tip.text}</p>
@@ -3751,6 +3881,7 @@ function labShowResult() {
       <button onclick="labModalClose(); labTab('quiz'); document.getElementById('st-quiz').scrollIntoView({behavior:'smooth', block:'start'})" class="mt-3 text-sm font-bold text-tea-gold btn-bounce">下一站：茶知識問答 →</button>`;
   }
   labModal(html);
+  labNameAI();
 }
 // 結果彈出視窗：點背景、右上角 ×、或按 Esc 都能關閉
 let labLastModalHtml = '';
@@ -3773,6 +3904,7 @@ function labModal(html) {
       ${html}
     </div>`;
   document.body.appendChild(m);
+  if (m.querySelector('#lab-name-box')) labNameRender();
 }
 // 從首頁進體驗館：完全沒開始過 → 關卡介紹；做到一半 → 「歡迎回來」；三個章都集滿 → 不跳視窗，直接進館
 function openLab() {
@@ -3865,6 +3997,7 @@ function labModalClose(instant) {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') labModalClose(); });
 function labReset(noScroll) {
   labPendingResult = false;
+  labName = ''; labNameState = 'idle'; labNameReq++;
   labPicked = [];
   document.getElementById('lab-temp').value = 90;
   document.getElementById('lab-time').value = 3;
