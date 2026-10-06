@@ -119,6 +119,44 @@ html.bg-hold .fluid-bg { animation-play-state: paused !important; }
 
 /* 語音對話：麥克風鍵（瀏覽器支援語音辨識才顯示）；聆聽中外圈光環一圈圈擴散（只動 transform / opacity） */
 .mic-btn { display: none; position: relative; }
+/* 測試版：標示這則回覆是 Gemini 還是手機內建聲音唸的 */
+/* 語音模式：實心深色底（不用 blur），光球只動 transform / opacity */
+.vm-entry { display: none; }
+html.can-voice .vm-entry { display: inline-flex; }
+#voice-mode { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  background: radial-gradient(120% 80% at 50% 40%, #1d3a29 0%, #12261A 60%, #0b170f 100%); color: #fff;
+  opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility 0s linear .3s; }
+#voice-mode.on { opacity: 1; visibility: visible; transition: opacity .3s ease; }
+.vm-top { position: absolute; top: max(24px, env(safe-area-inset-top)); left: 0; right: 0; text-align: center; }
+.vm-top span { display: block; }
+#vm-title { font-size: 18px; font-weight: 700; color: #D4AF37; letter-spacing: .1em; }
+.vm-sub { font-size: 11px; color: rgba(255,255,255,.45); letter-spacing: .3em; margin-top: 2px; }
+.vm-orb-btn { position: relative; width: min(56vw, 240px); height: min(56vw, 240px); border-radius: 9999px; background: none; border: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+.vm-orb { position: absolute; inset: 0; border-radius: 9999px; will-change: transform;
+  background: radial-gradient(circle at 35% 30%, #fff6d8 0%, #e9cd78 22%, #D4AF37 45%, #6aa47c 78%, #2f6b47 100%);
+  transition: transform .12s ease-out, opacity .3s ease; }
+.vm-ring { position: absolute; inset: 0; border-radius: 9999px; border: 2px solid rgba(212,175,55,.55); opacity: 0; pointer-events: none; }
+#voice-mode[data-state="listening"] .vm-ring { animation: vmRing 1.8s ease-out infinite; }
+#voice-mode[data-state="listening"] .vm-ring2 { animation-delay: .9s; }
+@keyframes vmRing { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(1.45); } }
+#voice-mode[data-state="thinking"] .vm-orb { animation: vmThink 1.4s ease-in-out infinite; }
+@keyframes vmThink { 0%,100% { transform: scale(.86); opacity: .75; } 50% { transform: scale(.94); opacity: 1; } }
+#voice-mode[data-state="speaking-device"] .vm-orb { animation: vmTalk .9s ease-in-out infinite; }
+@keyframes vmTalk { 0%,100% { transform: scale(.96); } 50% { transform: scale(1.06); } }
+#voice-mode[data-state="idle"] .vm-orb { transform: scale(.8); opacity: .7; }
+.vm-status { margin-top: 36px; font-size: 15px; letter-spacing: .15em; color: rgba(255,255,255,.85); min-height: 1.5em; text-align: center; }
+.vm-caption { margin-top: 12px; max-width: 30em; min-height: 3em; font-size: 13px; line-height: 1.7; color: rgba(255,255,255,.55); text-align: center; }
+.vm-bottom { position: absolute; bottom: max(28px, env(safe-area-inset-bottom)); left: 0; right: 0; display: flex; justify-content: center; gap: 28px; }
+.vm-btn { width: 56px; height: 56px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 22px;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); color: #fff; }
+#voice-mode[data-state="listening"] #vm-mic { background: #D4AF37; color: #12261A; border-color: #D4AF37; }
+.vm-close { background: rgba(255,255,255,.14); }
+@media (prefers-reduced-motion: reduce) {
+  #voice-mode .vm-ring, #voice-mode .vm-orb { animation: none !important; transition: none; }
+  #voice-mode[data-state="listening"] .vm-ring { opacity: .5; transform: scale(1.15); }
+}
+.tts-tag { font-size: 10px; color: rgba(255,255,255,.4); margin: 2px 0 0 4px; letter-spacing: .05em; }
 html.can-voice .mic-btn { display: flex; }
 .mic-btn.mic-on { background: #D4AF37; color: #12261A; }
 .mic-btn.mic-on::after { content: ''; position: absolute; inset: 0; border-radius: 9999px; border: 2px solid #D4AF37; animation: micRing 1.2s ease-out infinite; pointer-events: none; }
@@ -1041,6 +1079,7 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
         <div class="p-4 border-b border-white/10 flex items-center gap-2">
           <span class="text-emerald-300 text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-pot"/></svg></span>
           <span class="text-sm font-bold">AI 茶伴</span>
+          <button type="button" class="vm-entry ml-auto liquid-glass-dark border border-white/20 rounded-full px-3 py-1.5 text-[11px] items-center gap-1.5 btn-bounce" onclick="vmOpen('companion')" aria-label="開啟語音模式"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg>語音模式</button>
         </div>
         <div id="companion-log" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs"></div>
         <div id="companion-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
@@ -1053,6 +1092,21 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
     </section>
 
   </main>
+
+  <!-- 語音模式（全螢幕，像 ChatGPT／Gemini 的語音對話）：聆聽 → 思考 → 朗讀 → 自動再聆聽 -->
+  <div id="voice-mode" role="dialog" aria-modal="true" aria-label="語音模式" aria-hidden="true">
+    <div class="vm-top"><span class="font-serif" id="vm-title">AI 茶伴</span><span class="vm-sub">語音模式</span></div>
+    <button type="button" class="vm-orb-btn" onclick="vmTap()" aria-label="點一下說話">
+      <span class="vm-ring"></span><span class="vm-ring vm-ring2"></span>
+      <span class="vm-orb" id="vm-orb"></span>
+    </button>
+    <div class="vm-status" id="vm-status" aria-live="polite">正在聆聽…</div>
+    <div class="vm-caption" id="vm-caption"></div>
+    <div class="vm-bottom">
+      <button type="button" class="vm-btn" onclick="vmTap()" id="vm-mic" aria-label="說話／停止"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></button>
+      <button type="button" class="vm-btn vm-close" onclick="vmClose()" aria-label="結束語音模式"><svg viewBox="0 0 24 24" class="yi" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+  </div>
 
 <script>
 /* =========================================================
@@ -1737,6 +1791,7 @@ function openProduct(teaId, fromHistory) {
       <div class="p-4 border-b border-white/10 flex items-center gap-2">
         <span class="text-base leading-none" style="color:${tea.color}"><svg class="yi" aria-hidden="true"><use href="#yi-chat"/></svg></span>
         <span class="text-sm font-bold">問問關於這款茶的任何事</span>
+        <button type="button" class="vm-entry ml-auto liquid-glass-dark border border-white/20 rounded-full px-3 py-1.5 text-[11px] items-center gap-1.5 btn-bounce" onclick="vmOpen('product')" aria-label="開啟語音模式"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg>語音模式</button>
       </div>
       <div id="product-chat-log" class="p-4 space-y-3 max-h-[340px] overflow-y-auto text-xs"></div>
       <div id="product-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
@@ -1942,7 +1997,8 @@ const REDUCE_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // 讓 AI 的回覆逐字淡入（類似 ChatGPT / Gemini 的串流效果），結尾帶一顆跳動游標；
 // 回傳 Promise，動畫跑完才 resolve。減少動態效果時直接整段顯示
-function typeIntoBubble(logId, bubble, text, speed = 34) {
+function typeIntoBubble(logId, bubble, text, speed) {
+  speed = speed || 34;
   return new Promise(resolve => {
     const log = document.getElementById(logId);
     bubble.style.whiteSpace = 'pre-wrap';   // 保留 AI 回覆裡的換行
@@ -1955,7 +2011,7 @@ function typeIntoBubble(logId, bubble, text, speed = 34) {
     let i = 0;
     const timer = setInterval(() => {
       // 一次補 1～2 個字，節奏比較像真的串流
-      const n = Math.min(chars.length - i, Math.random() < 0.2 ? 2 : 1);
+      const n = Math.min(chars.length - i, speed > 34 ? 1 : (Math.random() < 0.2 ? 2 : 1));   // 跟聲音同步時固定一次一字
       const span = document.createElement('span');
       span.className = 'stream-ch';
       span.textContent = chars.slice(i, i + n).join('');
@@ -2234,7 +2290,11 @@ function ttsUnlock() {
   } catch (e) { ttsCtx = null; }
 }
 
-async function geminiSpeak(text, seq) {
+// 向 Gemini 要聲音：成功回傳 AudioBuffer；失敗丟出錯誤，訊息就是畫面上顯示的原因
+async function geminiFetch(text) {
+  if (!ttsCtx) throw new Error('瀏覽器不支援 Web Audio');
+  if (ttsOffUntil === Infinity) throw new Error('Worker 未支援 TTS');
+  if (Date.now() < ttsOffUntil) throw new Error('今日免費額度已用完');
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TTS_TIMEOUT);
   try {
@@ -2251,12 +2311,11 @@ async function geminiSpeak(text, seq) {
         }
       })
     });
-    if (res.status === 429) ttsOffUntil = Date.now() + 10 * 60 * 1000;
-    if (!res.ok) throw new Error('TTS ' + res.status);
+    if (res.status === 429) { ttsOffUntil = Date.now() + 10 * 60 * 1000; throw new Error('今日免費額度已用完'); }
+    if (!res.ok) throw new Error('Gemini 錯誤 ' + res.status);
     const data = await res.json();
     const part = data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.data);
-    if (!part) { ttsOffUntil = Infinity; throw new Error('Worker 沒有回傳聲音（可能還不支援 TTS）'); }
-    if (seq !== ttsSeq) return true;     // 等待期間使用者又按了麥克風或離開，這則不用播了
+    if (!part) { ttsOffUntil = Infinity; throw new Error('Worker 未支援 TTS'); }
     const rate = +(/rate=(\d+)/.exec(part.inlineData.mimeType || '') || [])[1] || 24000;
     const bin = atob(part.inlineData.data);
     const n = bin.length >> 1;
@@ -2267,30 +2326,58 @@ async function geminiSpeak(text, seq) {
       if (v >= 32768) v -= 65536;
       ch[i] = v / 32768;
     }
-    if (ttsCtx.state === 'suspended') await ttsCtx.resume();
-    const src = ttsCtx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ttsCtx.destination);
-    src.onended = () => { if (ttsSrc === src) ttsSrc = null; };
-    ttsSrc = src;
-    src.start();
-    return true;
+    return buf;
   } catch (e) {
-    console.warn('[tts] Gemini 語音失敗，改用手機內建聲音：', e.message);
-    return false;
+    throw new Error(e.name === 'AbortError' ? '連線逾時' : e.message);
   } finally {
     clearTimeout(timer);
   }
 }
+let ttsAnalyser = null;   // 語音模式的光球跟著 Gemini 聲音大小律動
+function playBuffer(buf) {
+  if (ttsCtx.state === 'suspended') ttsCtx.resume();
+  if (!ttsAnalyser) { ttsAnalyser = ttsCtx.createAnalyser(); ttsAnalyser.fftSize = 256; ttsAnalyser.connect(ttsCtx.destination); }
+  const src = ttsCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ttsAnalyser);
+  ttsSrc = src;
+  return new Promise(resolve => {
+    src.onended = () => { if (ttsSrc === src) ttsSrc = null; resolve(); };
+    src.start();
+  });
+}
 
-// 朗讀回覆：先試 Gemini，不行就用手機內建聲音
-async function speakReply(text) {
-  if (!text) return;
+// 準備朗讀（AI 泡泡出現「之前」呼叫，思考中動畫會多停一下等聲音）：
+// 回傳 { start(), msPerChar, by, why }；start() 開始出聲，msPerChar 讓逐字出現的速度跟聲音同步
+// 手機內建聲音沒辦法事先知道長度，用每秒約 4 個字估算
+const BROWSER_TTS_MS_PER_CHAR = 245;
+async function voicePrepare(key, text) {
+  if (!voiceTurn[key] || !text) return null;
+  voiceTurn[key] = false;
   stopSpeaking();
   const seq = ttsSeq;
-  const clean = ttsClean(text);
-  if (ttsCtx && Date.now() > ttsOffUntil && await geminiSpeak(clean, seq)) return;
-  if (seq === ttsSeq) speakText(text);
+  const chars = [...text].length;
+  try {
+    const buf = await geminiFetch(ttsClean(text));
+    if (seq !== ttsSeq) return null;     // 等待期間使用者又按了麥克風或離開
+    return { by: 'gemini', msPerChar: buf.duration * 1000 / chars, start: () => playBuffer(buf) };
+  } catch (e) {
+    console.warn('[tts] 改用手機內建聲音：', e.message);
+    if (seq !== ttsSeq || !CAN_SPEAK) return null;
+    return { by: 'device', why: e.message, msPerChar: BROWSER_TTS_MS_PER_CHAR, start: () => speakText(text) };
+  }
+}
+// 回覆泡泡出現時：開始出聲、回傳逐字速度；測試版在泡泡下方標示是誰唸的
+let voiceSpeechDone = null;   // 目前這則朗讀唸完的 Promise（語音模式用）
+function voiceStart(voice, bubble) {
+  if (!voice) return undefined;
+  voiceSpeechDone = voice.start();
+  vmOnSpeak(voice.by);
+  const tag = document.createElement('div');
+  tag.className = 'tts-tag';
+  tag.textContent = voice.by === 'gemini' ? 'Gemini 語音朗讀' : '手機內建語音朗讀' + (voice.why ? '（' + voice.why + '）' : '');
+  bubble.parentElement.after(tag);
+  return Math.max(40, Math.min(400, voice.msPerChar));
 }
 
 function stopSpeaking() {
@@ -2298,37 +2385,42 @@ function stopSpeaking() {
   if (ttsSrc) { try { ttsSrc.stop(); } catch (e) {} ttsSrc = null; }
   if (CAN_SPEAK) speechSynthesis.cancel();
 }
+// 回傳 Promise：唸完（或被中斷）才 resolve，語音模式靠它決定何時再開始聆聽
 function speakText(text) {
-  if (!CAN_SPEAK || !text) return;
+  if (!CAN_SPEAK || !text) return Promise.resolve();
   speechSynthesis.cancel();
   if (!ttsVoice) pickVoice();
-  ttsSentences(text).forEach(line => {
+  const lines = ttsSentences(text);
+  let done;
+  const p = new Promise(r => { done = r; });
+  // 保險：有些瀏覽器不會觸發 onend
+  const guard = setTimeout(() => done(), [...text].length * 400 + 3000);
+  lines.forEach((line, i) => {
     const u = new SpeechSynthesisUtterance(line);
     u.lang = ttsVoice ? ttsVoice.lang : 'zh-TW';
     if (ttsVoice) u.voice = ttsVoice;
     u.rate = 0.92;     // 稍微放慢，聽起來比較從容、溫柔
     u.pitch = 1.04;    // 音調略提一點點，比較柔和（太高會不自然）
     u.volume = 0.95;
+    if (i === lines.length - 1) u.onend = u.onerror = () => { clearTimeout(guard); done(); };
     speechSynthesis.speak(u);
   });
+  if (!lines.length) { clearTimeout(guard); done(); }
+  return p;
 }
-// 回覆出現時呼叫：只有語音提問的那一題才唸
-function voiceReply(key, text) {
-  if (!voiceTurn[key]) return;
-  voiceTurn[key] = false;
-  speakReply(text);
-}
-
 function voiceUI(btn, on) {
+  if (!btn) return;
   btn.classList.toggle('mic-on', on);
   btn.setAttribute('aria-label', on ? '停止聆聽' : '語音輸入');
 }
 function voiceStop() { if (voiceRec) { try { voiceRec.stop(); } catch (e) {} } }
 
-function voiceToggle(key, btn) {
+// hooks（語音模式用，可省略）：interim(文字)、fail(原因)、sent(送出後的 Promise)
+function voiceToggle(key, btn, hooks) {
+  hooks = hooks || {};
   if (!CAN_VOICE) return;
   if (voiceRec) { voiceStop(); return; }     // 聆聽中再按一次＝停止
-  if (chatBusy[key]) return;
+  if (chatBusy[key]) { hooks.fail && hooks.fail('busy'); return; }
   stopSpeaking();
   // iOS 需要在使用者點擊當下先「解鎖」語音合成，等 AI 回覆回來後才唸得出聲音
   if (CAN_SPEAK) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
@@ -2354,6 +2446,7 @@ function voiceToggle(key, btn) {
     }
     finalText = toTrad(finalText);
     input.value = toTrad(finalText + interim).trim();
+    hooks.interim && hooks.interim(input.value);
   };
   rec.onerror = (e) => {
     if (e.error === 'no-speech' || e.error === 'aborted') errMsg = ' ';
@@ -2372,14 +2465,16 @@ function voiceToggle(key, btn) {
       input.value = '';
       input.placeholder = errMsg.trim() || ph;
       if (errMsg.trim()) setTimeout(() => { if (input.placeholder === errMsg) input.placeholder = ph; }, 3500);
+      hooks.fail && hooks.fail(errMsg.trim());
       return;
     }
     input.placeholder = ph;
     if (text && !chatBusy[key]) {
       input.value = text;
       voiceTurn[key] = true;
-      cfg.send();
-    }
+      const p = cfg.send();
+      hooks.sent && hooks.sent(p);
+    } else hooks.fail && hooks.fail('');
   };
 
   try {
@@ -2387,8 +2482,107 @@ function voiceToggle(key, btn) {
     voiceRec = rec;
     voiceUI(btn, true);
     input.placeholder = '正在聆聽，請說話…';
-  } catch (e) { voiceRec = null; }
+  } catch (e) { voiceRec = null; hooks.fail && hooks.fail('start'); }
 }
+/* ---------------- 語音模式（全螢幕，連續語音對話） ----------------
+   聆聽 → 送出（沿用聊天室同一套流程，紀錄也留在聊天室）→ 思考 → 朗讀 → 唸完自動再聆聽
+   沒聽到聲音或出錯就停在待機，點光球繼續；按叉叉離開。一來一往，AI 說話時點光球可打斷並改聽你說 */
+const VM_TITLES = { companion: 'AI 茶伴' };
+let vmKey = null, vmLevelRaf = 0;
+function vmEl(id) { return document.getElementById(id); }
+function vmSet(state, status, caption) {
+  const box = vmEl('voice-mode');
+  box.dataset.state = state;
+  if (status != null) vmEl('vm-status').textContent = status;
+  if (caption != null) vmEl('vm-caption').textContent = caption;
+  if (state !== 'speaking-gemini') { cancelAnimationFrame(vmLevelRaf); vmEl('vm-orb').style.transform = ''; }
+}
+function vmOpen(key) {
+  if (!CAN_VOICE) return;
+  vmKey = key;
+  const tea = key === 'product' ? TEA_DB.find(t => t.id === currentTeaId) : null;
+  vmEl('vm-title').textContent = tea ? '「' + tea.name + '」茶伴' : VM_TITLES[key];
+  const box = vmEl('voice-mode');
+  box.classList.add('on');
+  box.setAttribute('aria-hidden', 'false');
+  document.documentElement.style.overflow = 'hidden';
+  vmListen();   // 在點擊當下開始聆聽（iOS 需要使用者手勢）
+}
+function vmClose() {
+  vmKey = null;
+  voiceStop();
+  stopSpeaking();
+  const box = vmEl('voice-mode');
+  box.classList.remove('on');
+  box.setAttribute('aria-hidden', 'true');
+  document.documentElement.style.overflow = '';
+  vmSet('idle', '', '');
+}
+// 點光球／麥克風：聆聽中 → 停止；說話中 → 打斷並改聽；待機 → 開始聽
+function vmTap() {
+  if (!vmKey) return;
+  if (voiceRec) { voiceStop(); return; }
+  const st = vmEl('voice-mode').dataset.state;
+  if (st === 'thinking') return;
+  stopSpeaking();
+  vmListen();
+}
+function vmListen() {
+  if (!vmKey) return;
+  const key = vmKey;
+  vmSet('listening', '正在聆聽…', '');
+  voiceToggle(key, null, {
+    interim: t => { if (vmKey) vmEl('vm-caption').textContent = t; },
+    fail: why => {
+      if (!vmKey) return;
+      vmSet('idle', why === 'busy' ? '茶伴還在回答上一題' : (why && why !== 'start' ? why : '點一下光球開始說話'), why ? '' : null);
+    },
+    sent: async p => {
+      if (!vmKey) return;
+      voiceSpeechDone = null;
+      vmSet('thinking', '思考中…', null);
+      await p;                                  // 聊天室那邊回覆打完字
+      if (!vmKey || key !== vmKey) return;
+      if (voiceSpeechDone) await voiceSpeechDone;  // 聲音唸完
+      if (!vmKey || key !== vmKey) return;
+      if (vmEl('voice-mode').dataset.state === 'thinking') { vmSet('idle', '連線有點問題，點一下光球再試一次', ''); return; }
+      vmListen();
+    }
+  });
+}
+// 回覆開始朗讀時（voiceStart 呼叫）：顯示回覆文字，Gemini 聲音讓光球跟音量律動
+function vmOnSpeak(by) {
+  if (!vmKey) return;
+  vmSet(by === 'gemini' ? 'speaking-gemini' : 'speaking-device', '茶伴正在說…', '');
+  vmCaptionFollow();
+  if (by !== 'gemini' || !ttsAnalyser || REDUCE_MOTION) return;
+  const data = new Uint8Array(ttsAnalyser.fftSize);
+  const orb = vmEl('vm-orb');
+  const tick = () => {
+    ttsAnalyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+    const lvl = Math.min(1, Math.sqrt(sum / data.length) * 4);
+    orb.style.transform = `scale(${(0.92 + lvl * 0.22).toFixed(3)})`;
+    vmLevelRaf = requestAnimationFrame(tick);
+  };
+  cancelAnimationFrame(vmLevelRaf);
+  vmLevelRaf = requestAnimationFrame(tick);
+}
+// 字幕：跟著聊天室泡泡逐字出現的內容走（泡泡本身就跟聲音同步）
+function vmCaptionFollow() {
+  const log = vmEl(vmKey === 'product' ? 'product-chat-log' : 'companion-log');
+  const bubbles = log.querySelectorAll('.msg-in-bot');
+  const b = bubbles[bubbles.length - 1];
+  const step = () => {
+    if (!vmKey || !vmEl('voice-mode').dataset.state.startsWith('speaking')) return;
+    if (b) vmEl('vm-caption').textContent = b.textContent;
+    setTimeout(step, 120);
+  };
+  step();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && vmKey) vmClose(); });
+
 // 離開頁面、切換分頁時停止聆聽與朗讀
 window.addEventListener('pagehide', () => { voiceStop(); stopSpeaking(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { voiceStop(); stopSpeaking(); } });
@@ -2429,10 +2623,10 @@ async function askProduct(presetText, srcEl) {
     const suggestions = suggestPart
       ? suggestPart.split('|').map(s => s.trim()).filter(Boolean)
       : [];
+    const voice = await voicePrepare('product', reply);   // 語音提問：先備好聲音，文字和聲音同時開始
     await removeTyping('product-chat-log');
     const bubble = addBubble('product-chat-log', 'bot', '');
-    voiceReply('product', reply);
-    await typeIntoBubble('product-chat-log', bubble, reply);
+    await typeIntoBubble('product-chat-log', bubble, reply, voiceStart(voice, bubble));
     productLogs[currentTeaId].push({ role: 'bot', text: reply });
     renderProductChips(suggestions);
   } catch (e) {
@@ -2505,10 +2699,10 @@ ${dbText}
     const suggestions = suggestPart
       ? suggestPart.split('|').map(s => s.trim()).filter(Boolean).slice(0, 3)
       : [];
+    const voice = await voicePrepare('companion', reply);   // 語音提問：先備好聲音，文字和聲音同時開始
     await removeTyping('companion-log');
     const bubble = addBubble('companion-log', 'bot', '');
-    voiceReply('companion', reply);
-    await typeIntoBubble('companion-log', bubble, reply);
+    await typeIntoBubble('companion-log', bubble, reply, voiceStart(voice, bubble));
     companionHistory.push({ role: 'bot', text: reply });
 
     // 從 AI 的回覆文字裡比對出提到的是哪一款茶，出現的話在下面加一個可以直接點過去的按鈕
