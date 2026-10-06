@@ -432,6 +432,11 @@ AI 問答提供動態建議按鈕。
 * 不支援時：只有瀏覽器有 `SpeechRecognition` 才在 `<html>` 加 `.can-voice` 顯示麥克風；LINE／Facebook／Instagram 內建瀏覽器一律不顯示；啟動後回報 `service-not-allowed`／`language-not-supported` 也會收起麥克風。文字聊天完全不受影響
 * 錯誤提示放在輸入框 placeholder（沒權限、沒聽清楚），3.5 秒後還原
 * 朗讀聲音（2026-10-06 調柔和）：`voiceScore()` 依自然程度挑聲音，順序約為 Edge 線上 Natural 女聲（曉臻／曉雨）＞ iOS／Mac 增強版美佳 ＞ Google 國語（臺灣）＞ 其他中文聲音，避開 Zhiwei、Hanhan 等機械感男聲／舊聲音；語速 0.92、音調 1.04；`ttsClean()` 拿掉『』「」與括號補充、／唸成「或」、～唸成「到」；`ttsSentences()` 一句一句排隊唸（短句併入前句），停頓較自然也避開 Chrome 長句截斷
+* **Gemini 語音朗讀（2026-10-06，測試版）**：語音提問的回覆優先用 Gemini TTS 唸（`speakReply()` → `geminiSpeak()`），走同一個 Worker，body 帶 `model: 'gemini-3.8-flash-tts'`、`responseModalities: ['AUDIO']`、聲音 `Vindemiatrix`（溫柔女聲），文字前加 `TTS_STYLE` 語氣指示；回傳 24kHz 16-bit PCM，用 Web Audio 播放（`ttsUnlock()` 在按麥克風當下喚醒 AudioContext，iOS 才放得出聲）
+  * 免費額度（使用者 AI Studio 實際數字）：Flash TTS 每分鐘 10 次、每分鐘 1 萬 token、每天 100 次，每天美西午夜（臺灣下午 3／4 點）重置；一次朗讀約 600～700 token
+  * 自動退回手機內建聲音：429（額度用完，之後 10 分鐘直接用手機聲音）、其他錯誤、8 秒逾時、Worker 回傳沒有聲音（視為 Worker 不支援 TTS，本次瀏覽不再嘗試）
+  * 付費價格（2026 年底前）：每則約 US$0.004～0.006；2027 起加倍
+  * Worker 需要把前端送來的 `model` 與 `generationConfig` 原樣轉給 Gemini；若 Worker 寫死文字模型，測試版會一直用手機聲音
 * 瀏覽器內建聲音的自然度有上限，iPhone 若要更自然：設定 → 輔助使用 → 朗讀內容 → 聲音 → 中文（台灣）→ 下載「美佳（增強）」
 * **全站絕對不能出現簡體字**（2026-10-06，使用者要求）：語音辨識有時回傳簡體，AI 會跟著用簡體回答。測試版三層防護：
   1. 兩個 AI 的系統提示加【語言規範】：一律臺灣繁體中文與臺灣用語，使用者用簡體提問也不例外

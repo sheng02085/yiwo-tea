@@ -2213,10 +2213,94 @@ function ttsSentences(text) {
   }, []);
 }
 
-function stopSpeaking() { if (CAN_SPEAK) speechSynthesis.cancel(); }
+/* ----- Gemini 語音朗讀（比手機內建聲音自然）-----
+   走同一個 Worker 呼叫 Gemini TTS，回傳 24kHz PCM 用 Web Audio 播放。
+   免費額度：每分鐘 10 次、每天 100 次（每天台灣時間下午 3／4 點重置）。
+   額度用完、Worker 不支援、逾時或任何錯誤 → 這一則改用手機內建聲音（speakText），使用者不會聽到壞掉；
+   被限流（429）後 10 分鐘內直接用手機聲音，不再空等 */
+const TTS_MODEL = 'gemini-3.8-flash-tts';
+const TTS_VOICE = 'Vindemiatrix';   // Gemini 內建聲音裡「溫柔」型的女聲
+const TTS_STYLE = '請用溫柔、放鬆、像懂茶的朋友在身邊輕聲聊天的語氣，以臺灣口音的國語，自然流暢地唸出下面這段話：';
+const TTS_TIMEOUT = 8000;
+let ttsCtx = null, ttsSrc = null, ttsSeq = 0, ttsOffUntil = 0;
+
+// 必須在使用者點擊當下建立／喚醒 AudioContext，iOS 之後才放得出聲音
+function ttsUnlock() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!ttsCtx) ttsCtx = new AC();
+    if (ttsCtx.state === 'suspended') ttsCtx.resume();
+  } catch (e) { ttsCtx = null; }
+}
+
+async function geminiSpeak(text, seq) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TTS_TIMEOUT);
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        model: TTS_MODEL,
+        contents: [{ parts: [{ text: TTS_STYLE + '\n' + text }] }],
+        generationConfig: {
+          responseModalities: ['AUDIO'],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } }
+        }
+      })
+    });
+    if (res.status === 429) ttsOffUntil = Date.now() + 10 * 60 * 1000;
+    if (!res.ok) throw new Error('TTS ' + res.status);
+    const data = await res.json();
+    const part = data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.data);
+    if (!part) { ttsOffUntil = Infinity; throw new Error('Worker 沒有回傳聲音（可能還不支援 TTS）'); }
+    if (seq !== ttsSeq) return true;     // 等待期間使用者又按了麥克風或離開，這則不用播了
+    const rate = +(/rate=(\d+)/.exec(part.inlineData.mimeType || '') || [])[1] || 24000;
+    const bin = atob(part.inlineData.data);
+    const n = bin.length >> 1;
+    const buf = ttsCtx.createBuffer(1, n, rate);
+    const ch = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) {        // 16-bit little-endian PCM → -1～1
+      let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8);
+      if (v >= 32768) v -= 65536;
+      ch[i] = v / 32768;
+    }
+    if (ttsCtx.state === 'suspended') await ttsCtx.resume();
+    const src = ttsCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ttsCtx.destination);
+    src.onended = () => { if (ttsSrc === src) ttsSrc = null; };
+    ttsSrc = src;
+    src.start();
+    return true;
+  } catch (e) {
+    console.warn('[tts] Gemini 語音失敗，改用手機內建聲音：', e.message);
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// 朗讀回覆：先試 Gemini，不行就用手機內建聲音
+async function speakReply(text) {
+  if (!text) return;
+  stopSpeaking();
+  const seq = ttsSeq;
+  const clean = ttsClean(text);
+  if (ttsCtx && Date.now() > ttsOffUntil && await geminiSpeak(clean, seq)) return;
+  if (seq === ttsSeq) speakText(text);
+}
+
+function stopSpeaking() {
+  ttsSeq++;
+  if (ttsSrc) { try { ttsSrc.stop(); } catch (e) {} ttsSrc = null; }
+  if (CAN_SPEAK) speechSynthesis.cancel();
+}
 function speakText(text) {
   if (!CAN_SPEAK || !text) return;
-  stopSpeaking();
+  speechSynthesis.cancel();
   if (!ttsVoice) pickVoice();
   ttsSentences(text).forEach(line => {
     const u = new SpeechSynthesisUtterance(line);
@@ -2232,7 +2316,7 @@ function speakText(text) {
 function voiceReply(key, text) {
   if (!voiceTurn[key]) return;
   voiceTurn[key] = false;
-  speakText(text);
+  speakReply(text);
 }
 
 function voiceUI(btn, on) {
@@ -2248,6 +2332,7 @@ function voiceToggle(key, btn) {
   stopSpeaking();
   // iOS 需要在使用者點擊當下先「解鎖」語音合成，等 AI 回覆回來後才唸得出聲音
   if (CAN_SPEAK) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
+  ttsUnlock();
 
   const cfg = VOICE_CHAT[key];
   const input = document.getElementById(cfg.input);
