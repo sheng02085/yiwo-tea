@@ -360,6 +360,11 @@ html.can-voice .mic-btn { display: flex; }
 .leaf-pop { animation: leafPop .35s ease; }
 @keyframes padPulse { 0% { transform: scale(1); } 35% { transform: scale(.965); } 100% { transform: scale(1); } }   /* 只動 transform，不做會動的陰影 */
 .pad-pulse { animation: padPulse .45s ease-out; }
+/* 長按焙火的金色光圈：原本用會動的陰影，改成一圈金框往外擴散淡出（只動 transform／opacity）。
+   放在茶盤外面一層（茶盤本身 overflow:hidden 會把光圈切掉） */
+.pad-ring { position: absolute; pointer-events: none; border: 2px solid rgba(212,175,55,.75); border-radius: 1rem;
+  will-change: transform, opacity; animation: padRing .45s ease-out forwards; }
+@keyframes padRing { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.11); } }
 #lab-hint:empty { display: none; }
 @keyframes modalBgIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalIn { from { opacity: 0; transform: translateY(18px) scale(.95); } to { opacity: 1; transform: none; } }
@@ -423,6 +428,7 @@ html.can-voice .mic-btn { display: flex; }
 .stamp-in { animation: stampIn .5s cubic-bezier(.2,1.4,.4,1) both; }
 @media (prefers-reduced-motion: reduce) {
   .seg.active::after, .st-in-right, .st-in-left, .pad-pulse { animation: none; }
+  .pad-ring { display: none; }
   .stamp-in { animation: none; opacity: 1; transform: rotate(-12deg); }
   #lab-modal .modal-card { animation: modalBgIn .2s ease; }
   #tab-ind, .seg-fill { transition: none !important; }
@@ -4064,16 +4070,27 @@ function bindProcPad() {
 }
 // 震動回饋：用標準的 navigator.vibrate（Android 支援；iPhone 瀏覽器目前不支援，
 // 沒有震動也沒關係，畫面上的「咚」視覺回饋一樣看得到節奏）。
+function padRing(pad) {
+  const host = pad.offsetParent;
+  if (!host) return;
+  const r = document.createElement('div');
+  r.className = 'pad-ring';
+  r.style.left = pad.offsetLeft + 'px'; r.style.top = pad.offsetTop + 'px';
+  r.style.width = pad.offsetWidth + 'px'; r.style.height = pad.offsetHeight + 'px';
+  r.addEventListener('animationend', () => r.remove());
+  setTimeout(() => r.remove(), 800);
+  host.appendChild(r);
+}
 function procPulse() {
   const pad = document.getElementById('proc-pad');
-  if (pad) { pad.classList.remove('pad-pulse'); void pad.offsetWidth; pad.classList.add('pad-pulse'); }
+  if (pad) { pad.classList.remove('pad-pulse'); void pad.offsetWidth; pad.classList.add('pad-pulse'); padRing(pad); }
 }
 function procBuzz() {
   try {
     if (typeof navigator.vibrate === 'function') navigator.vibrate(BUZZ_MS);
   } catch (e) {}
   const pad = document.getElementById('proc-pad');
-  if (pad) { pad.classList.remove('pad-pulse'); void pad.offsetWidth; pad.classList.add('pad-pulse'); }
+  if (pad) { pad.classList.remove('pad-pulse'); void pad.offsetWidth; pad.classList.add('pad-pulse'); padRing(pad); }
 }
 const HOLD_MS = 2400;
 const BUZZ_MS = 25;    // 每次震動的長度：極短＝清脆的「噠」（線性馬達效果最明顯）；數字越大越厚實
