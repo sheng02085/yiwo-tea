@@ -117,6 +117,16 @@ html.bg-hold .fluid-bg { animation-play-state: paused !important; }
   .think-dot { opacity: .6; }
 }
 
+/* 語音對話：麥克風鍵（瀏覽器支援語音辨識才顯示）；聆聽中外圈光環一圈圈擴散（只動 transform / opacity） */
+.mic-btn { display: none; position: relative; }
+html.can-voice .mic-btn { display: flex; }
+.mic-btn.mic-on { background: #D4AF37; color: #12261A; }
+.mic-btn.mic-on::after { content: ''; position: absolute; inset: 0; border-radius: 9999px; border: 2px solid #D4AF37; animation: micRing 1.2s ease-out infinite; pointer-events: none; }
+@keyframes micRing { from { opacity: .8; transform: scale(1); } to { opacity: 0; transform: scale(1.6); } }
+@media (prefers-reduced-motion: reduce) {
+  .mic-btn.mic-on::after { animation: none; opacity: .6; transform: scale(1.18); }
+}
+
 .chip { transition: all .15s ease; }
 .chip:active { transform: scale(.95); }
 
@@ -600,6 +610,7 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
     <symbol id="yi-brush" viewBox="0 0 24 24"><path d="M20.5 3.5 12.3 11.7"/><path d="M10.6 10.3l3.1 3.1"/><path d="M10.6 12.2c-2.4-.4-4.4 1-4.9 3.4-.4 2-1.5 3.3-3.2 3.9 3.5.9 7.4.3 8.8-2.4.7-1.4.6-3.1-.7-4.9z" fill="currentColor" fill-opacity=".22"/></symbol>
     <symbol id="yi-scroll" viewBox="0 0 24 24"><path d="M6.5 5h11v14h-11z" fill="currentColor" fill-opacity=".22"/><path d="M4 5h16M4 19h16"/><path d="M9 5l3-2.5L15 5"/><path d="M12 8.5v7M9.5 8.5v4.5M14.5 11v4.5"/></symbol>
     <symbol id="yi-chat" viewBox="0 0 24 24"><path d="M5 4.5h14a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-7.5L6 21v-4H5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2z" fill="currentColor" fill-opacity=".22"/><circle cx="8.5" cy="10.8" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="10.8" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.8" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="yi-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" fill-opacity=".22"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/><path d="M8.5 21h7"/></symbol>
     <symbol id="yi-send" viewBox="0 0 24 24"><path d="M21 3 3.5 10.2l7 3.3 3.3 7z" fill="currentColor" fill-opacity=".22"/><path d="M21 3 10.5 13.5"/></symbol>
     <symbol id="yi-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.2" fill="currentColor" fill-opacity=".22"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="M12 15v2.2"/></symbol>
     <symbol id="yi-tap" viewBox="0 0 24 24"><path d="M10 13V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M13 10.5a1.5 1.5 0 0 1 3 0V12"/><path d="M16 11.5a1.5 1.5 0 0 1 3 0V15c0 3.6-2.5 6-6 6h-1c-2.1 0-3.5-.9-4.7-2.5l-2.8-3.8a1.5 1.5 0 0 1 2.4-1.8L10 15"/><path d="M6.5 4.5 5 3M6 7.5H4"/></symbol>
@@ -1034,6 +1045,7 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
         <div id="companion-log" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs"></div>
         <div id="companion-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
         <div class="p-3 border-t border-white/10 flex gap-2">
+          <button type="button" class="mic-btn w-10 h-10 flex-shrink-0 rounded-full liquid-glass-dark border border-white/20 items-center justify-center btn-bounce" onclick="voiceToggle('companion', this)" aria-label="語音輸入" title="按一下說話"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></span></button>
           <input id="companion-input" type="text" placeholder="想放鬆一下 / 最近外食比較多 / 想喝點溫暖的…" class="flex-1 liquid-glass-dark rounded-full px-4 py-2.5 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter') sendCompanion()">
           <button onclick="sendCompanion()" class="w-10 h-10 rounded-full bg-emerald-400 text-tea-dark flex items-center justify-center btn-bounce"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-send"/></svg></span></button>
         </div>
@@ -1729,6 +1741,7 @@ function openProduct(teaId, fromHistory) {
       <div id="product-chat-log" class="p-4 space-y-3 max-h-[340px] overflow-y-auto text-xs"></div>
       <div id="product-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
       <div class="p-3 border-t border-white/10 flex gap-2">
+        <button type="button" class="mic-btn w-10 h-10 flex-shrink-0 rounded-full liquid-glass-dark border border-white/20 items-center justify-center btn-bounce" onclick="voiceToggle('product', this)" aria-label="語音輸入" title="按一下說話"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></span></button>
         <input id="product-chat-input" type="text" placeholder="輸入你的問題…" class="flex-1 liquid-glass-dark rounded-full px-4 py-2.5 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter') askProduct()">
         <button onclick="askProduct()" class="w-10 h-10 rounded-full flex items-center justify-center btn-bounce" style="background:${tea.color}; color:#12261A"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-send"/></svg></span></button>
       </div>
@@ -2095,6 +2108,123 @@ async function callGemini(systemPrompt, contents) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "（沒有收到回覆，請再試一次）";
 }
 
+/* ---------------- 語音對話（AI 茶伴＋茶款頁問答共用） ----------------
+   用瀏覽器內建的 Web Speech API，不經過 Worker：
+   - 按麥克風說話 → SpeechRecognition（zh-TW）把語音轉成文字填進輸入列，說完自動送出
+   - 用語音問的那一題，AI 回覆會用 speechSynthesis 唸出來（打字問的照舊不出聲）
+   瀏覽器不支援語音辨識（LINE / Facebook / IG 內建瀏覽器、部分 iOS 環境）就不顯示麥克風，文字聊天照常 */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+const IN_APP_BROWSER = /\bLine\/|FBAN|FBAV|Instagram/i.test(navigator.userAgent);
+const CAN_VOICE = !!SpeechRec && !IN_APP_BROWSER;
+const CAN_SPEAK = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+if (CAN_VOICE) document.documentElement.classList.add('can-voice');
+
+const VOICE_CHAT = {
+  companion: { input: 'companion-input', send: () => sendCompanion() },
+  product:   { input: 'product-chat-input', send: () => askProduct() }
+};
+const voiceTurn = {};          // 這一題是不是用語音問的（是的話回覆要唸出來）
+let voiceRec = null;
+
+// 挑一個中文（優先台灣）的語音；部分瀏覽器的語音清單是非同步載入
+let ttsVoice = null;
+function pickVoice() {
+  if (!CAN_SPEAK) return;
+  const vs = speechSynthesis.getVoices();
+  ttsVoice = vs.find(v => v.lang === 'zh-TW') || vs.find(v => /^zh[-_]TW/i.test(v.lang))
+    || vs.find(v => /^zh[-_](HK|Hant)/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (CAN_SPEAK) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+function stopSpeaking() { if (CAN_SPEAK) speechSynthesis.cancel(); }
+function speakText(text) {
+  if (!CAN_SPEAK || !text) return;
+  stopSpeaking();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'zh-TW';
+  if (ttsVoice) u.voice = ttsVoice;
+  u.rate = 1;
+  speechSynthesis.speak(u);
+}
+// 回覆出現時呼叫：只有語音提問的那一題才唸
+function voiceReply(key, text) {
+  if (!voiceTurn[key]) return;
+  voiceTurn[key] = false;
+  speakText(text);
+}
+
+function voiceUI(btn, on) {
+  btn.classList.toggle('mic-on', on);
+  btn.setAttribute('aria-label', on ? '停止聆聽' : '語音輸入');
+}
+function voiceStop() { if (voiceRec) { try { voiceRec.stop(); } catch (e) {} } }
+
+function voiceToggle(key, btn) {
+  if (!CAN_VOICE) return;
+  if (voiceRec) { voiceStop(); return; }     // 聆聽中再按一次＝停止
+  if (chatBusy[key]) return;
+  stopSpeaking();
+  // iOS 需要在使用者點擊當下先「解鎖」語音合成，等 AI 回覆回來後才唸得出聲音
+  if (CAN_SPEAK) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
+
+  const cfg = VOICE_CHAT[key];
+  const input = document.getElementById(cfg.input);
+  const ph = input.dataset.ph || input.placeholder;   // 原本的提示文字，結束後還原
+  input.dataset.ph = ph;
+  const rec = new SpeechRec();
+  rec.lang = 'zh-TW';
+  rec.interimResults = true;
+  rec.continuous = false;
+  rec.maxAlternatives = 1;
+  let finalText = '', errMsg = '';
+
+  rec.onresult = (e) => {
+    let interim = '';
+    finalText = '';
+    for (let i = 0; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalText += t; else interim += t;
+    }
+    input.value = (finalText + interim).trim();
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') errMsg = ' ';
+    else if (e.error === 'not-allowed') errMsg = '麥克風沒有開啟權限，請允許後再試，或直接打字';
+    else if (e.error === 'service-not-allowed' || e.error === 'language-not-supported') {
+      // 這個瀏覽器其實用不了語音辨識：收起麥克風，只留文字聊天
+      errMsg = '這個瀏覽器不支援語音輸入，請直接打字';
+      document.documentElement.classList.remove('can-voice');
+    } else errMsg = '沒有聽清楚，再試一次或直接打字';
+  };
+  rec.onend = () => {
+    voiceUI(btn, false);
+    voiceRec = null;
+    const text = (finalText || input.value).trim();
+    if (errMsg) {
+      input.value = '';
+      input.placeholder = errMsg.trim() || ph;
+      if (errMsg.trim()) setTimeout(() => { if (input.placeholder === errMsg) input.placeholder = ph; }, 3500);
+      return;
+    }
+    input.placeholder = ph;
+    if (text && !chatBusy[key]) {
+      input.value = text;
+      voiceTurn[key] = true;
+      cfg.send();
+    }
+  };
+
+  try {
+    rec.start();
+    voiceRec = rec;
+    voiceUI(btn, true);
+    input.placeholder = '正在聆聽，請說話…';
+  } catch (e) { voiceRec = null; }
+}
+// 離開頁面、切換分頁時停止聆聽與朗讀
+window.addEventListener('pagehide', () => { voiceStop(); stopSpeaking(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { voiceStop(); stopSpeaking(); } });
+
 /* ---------------- 產品介紹頁問答 ---------------- */
 async function askProduct(presetText, srcEl) {
   const tea = TEA_DB.find(t => t.id === currentTeaId);
@@ -2132,10 +2262,12 @@ async function askProduct(presetText, srcEl) {
       : [];
     await removeTyping('product-chat-log');
     const bubble = addBubble('product-chat-log', 'bot', '');
+    voiceReply('product', reply);
     await typeIntoBubble('product-chat-log', bubble, reply);
     productLogs[currentTeaId].push({ role: 'bot', text: reply });
     renderProductChips(suggestions);
   } catch (e) {
+    voiceTurn.product = false;
     await removeTyping('product-chat-log');
     const errMsg = '目前連線有點問題，稍後再試試看（' + e.message + '）';
     addBubble('product-chat-log', 'bot', errMsg, yiIcon('hands', '#D4AF37'));
@@ -2205,6 +2337,7 @@ ${dbText}
       : [];
     await removeTyping('companion-log');
     const bubble = addBubble('companion-log', 'bot', '');
+    voiceReply('companion', reply);
     await typeIntoBubble('companion-log', bubble, reply);
     companionHistory.push({ role: 'bot', text: reply });
 
@@ -2226,6 +2359,7 @@ ${dbText}
     // AI 有給建議就用 AI 的；沒有的話退回預設按鈕
     renderChips(suggestions.length ? suggestions : ['再推薦一次', '想看這款茶的介紹', '換一種心情']);
   } catch (e) {
+    voiceTurn.companion = false;
     await removeTyping('companion-log');
     addBubble('companion-log', 'bot', '目前連線有點問題，稍後再試試看（' + e.message + '）', yiIcon('hands', '#D4AF37'));
     renderChips(['想放鬆一下', '最近外食比較多', '想喝點溫暖的']);

@@ -420,7 +420,9 @@ AI 問答提供動態建議按鈕。
 * 茶款頁切換時還原的舊對話不播進場動畫（`addBubble` 第 5 參數 `noAnim`）
 * 減少動態效果或不支援 `element.animate`：不飛行，泡泡／按鈕只淡入，回覆整段直接顯示，圖示、跳點、游標不動
 
-## 語音對話（2026-10-06，AI 茶伴＋茶款頁問答共用）
+## 語音對話（2026-10-06，目前只在測試版 `test/`；AI 茶伴＋茶款頁問答共用）
+
+* 狀態：先放測試版 `test/index.html` 試用，正式版 `index.html` 尚未加入；確認手機上沒問題再搬到正式版
 
 * 用瀏覽器內建 Web Speech API，**不經過 Worker、不改 Worker**：語音轉文字用 `SpeechRecognition`（`zh-TW`），朗讀用 `speechSynthesis`（優先挑 zh-TW 語音）
 * 輸入列最左邊加麥克風鍵（`.mic-btn`，圖示 `#yi-mic`）；放在輸入框**左邊**，因為 `msgSource()`／`flySend()` 靠 `input.nextElementSibling` 找送出鍵
