@@ -2285,8 +2285,15 @@ function ttsSentences(text) {
    額度用完、Worker 還沒更新、第一段聲音超過 10 秒沒來或任何錯誤 → 這一則改用手機內建聲音（speakText）；
    被限流（429）後 10 分鐘內直接用手機聲音，不再空等 */
 const TTS_MODEL = 'gemini-3.8-flash-tts';
-const TTS_VOICE = 'Vindemiatrix';   // Gemini 內建聲音裡「溫柔」型的女聲
-const TTS_STYLE = '溫柔、放鬆，像懂茶的朋友在身邊輕聲聊天，臺灣口音的國語，自然流暢';
+// 使用者要「接近 Siri」：清楚、親切、平穩的女聲。Gemini 內建女聲候選：
+// Erinome（清晰，預設）、Despina（圓潤）、Autonoe（明亮）、Achernar（輕柔）、Vindemiatrix（溫柔）、Sulafat（溫暖）
+// 測試版可在網址加 ?voice=聲音名稱 直接試聽比較，例如 test/?voice=Despina
+const TTS_VOICES = ['Erinome', 'Despina', 'Autonoe', 'Achernar', 'Vindemiatrix', 'Sulafat'];
+const TTS_VOICE = (() => {
+  try { const v = new URLSearchParams(location.search).get('voice'); if (v && TTS_VOICES.includes(v)) return v; } catch (e) {}
+  return 'Erinome';
+})();
+const TTS_STYLE = '像 iPhone 的 Siri 那樣的年輕女性語音助理：咬字清楚、親切溫和、語調平穩自然，帶一點微笑；臺灣口音的國語，語速適中、流暢不拖拍';
 const TTS_FIRST_AUDIO_TIMEOUT = 10000;
 const GEMINI_TTS_MS_PER_CHAR = 230;   // 串流還沒結束、不知道總長度前，先用這個速度逐字；結束後依實際長度校正
 let ttsCtx = null, ttsSeq = 0, ttsOffUntil = 0, ttsSources = [], ttsStream = null, ttsAnalyser = null;
@@ -2437,7 +2444,7 @@ async function voicePrepare(key, text) {
   try {
     const st = await geminiStream(ttsClean(text));
     if (seq !== ttsSeq) return null;     // 等待期間使用者又按了麥克風或離開
-    return { by: 'gemini', why: secs() + ' 秒開始出聲', pace: st.pace, start: () => st.start() };
+    return { by: 'gemini', why: TTS_VOICE + '，' + secs() + ' 秒開始出聲', pace: st.pace, start: () => st.start() };
   } catch (e) {
     console.warn('[tts] 改用手機內建聲音：', e.message);
     if (seq !== ttsSeq || !CAN_SPEAK) return null;
