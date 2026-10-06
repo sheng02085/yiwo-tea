@@ -432,13 +432,16 @@ AI 問答提供動態建議按鈕。
 * 不支援時：只有瀏覽器有 `SpeechRecognition` 才在 `<html>` 加 `.can-voice` 顯示麥克風；LINE／Facebook／Instagram 內建瀏覽器一律不顯示；啟動後回報 `service-not-allowed`／`language-not-supported` 也會收起麥克風。文字聊天完全不受影響
 * 錯誤提示放在輸入框 placeholder（沒權限、沒聽清楚），3.5 秒後還原
 * 朗讀聲音（2026-10-06 調柔和）：`voiceScore()` 依自然程度挑聲音，順序約為 Edge 線上 Natural 女聲（曉臻／曉雨）＞ iOS／Mac 增強版美佳 ＞ Google 國語（臺灣）＞ 其他中文聲音，避開 Zhiwei、Hanhan 等機械感男聲／舊聲音；語速 0.92、音調 1.04；`ttsClean()` 拿掉『』「」與括號補充、／唸成「或」、～唸成「到」；`ttsSentences()` 一句一句排隊唸（短句併入前句），停頓較自然也避開 Chrome 長句截斷
-* **Gemini 語音朗讀（2026-10-06，測試版）**：語音提問的回覆優先用 Gemini TTS 唸（`speakReply()` → `geminiSpeak()`），走同一個 Worker，body 帶 `model: 'gemini-3.8-flash-tts'`、`responseModalities: ['AUDIO']`、聲音 `Vindemiatrix`（溫柔女聲），文字前加 `TTS_STYLE` 語氣指示；回傳 24kHz 16-bit PCM，用 Web Audio 播放（`ttsUnlock()` 在按麥克風當下喚醒 AudioContext，iOS 才放得出聲）
+* **Gemini 語音朗讀（2026-10-06，測試版）**：語音提問的回覆優先用 Gemini TTS 唸（`voicePrepare()` → `geminiStream()`），模型 `gemini-3.8-flash-tts`、聲音 `Vindemiatrix`（溫柔女聲），語氣用 `speech_metadata.style`（`TTS_STYLE`）
+  * 改用 **Interactions API 串流**（`POST /v1beta/interactions`，`stream: true`，SSE `step.delta` 帶 base64 的 24kHz 16-bit PCM），收到第一段就播；原本的 generateContent 要等整段產生完，實機常超過 8 秒逾時
+  * Worker：網站送 `interactions: true` 時，Worker 改呼叫 Interactions API（金鑰放 `x-goog-api-key` header）並把回應串流原樣轉回；文字對話不變。完整程式碼存在專案檔案 `worker/tea-worker.js`，要貼到 Cloudflare 後台的 `tea` Worker
+  * `ttsUnlock()` 在按麥克風當下喚醒 AudioContext（iOS 才放得出聲）；片段依序排在 AudioContext 時間軸上播放（`pcmChunk()` 處理切在樣本中間的奇數 byte）
+  * 文字同步：串流結束前逐字速度先用每字 230ms（`GEMINI_TTS_MS_PER_CHAR`），串流結束知道總長度後，`typeIntoBubble()` 依剩餘字數調整，讓最後一字和聲音同時結束
+  * 自動退回手機內建聲音：429（之後 10 分鐘直接用手機聲音）、400 且訊息提到 interactions（Worker 尚未更新，本次瀏覽不再嘗試）、其他錯誤、第一段聲音 10 秒內沒來
   * 免費額度（使用者 AI Studio 實際數字）：Flash TTS 每分鐘 10 次、每分鐘 1 萬 token、每天 100 次，每天美西午夜（臺灣下午 3／4 點）重置；一次朗讀約 600～700 token
-  * 自動退回手機內建聲音：429（額度用完，之後 10 分鐘直接用手機聲音）、其他錯誤、8 秒逾時、Worker 回傳沒有聲音（視為 Worker 不支援 TTS，本次瀏覽不再嘗試）
   * 付費價格（2026 年底前）：每則約 US$0.004～0.006；2027 起加倍
-  * 文字與聲音同步：語音提問時，`voicePrepare()` 先拿到聲音（思考中動畫多停一下），再讓泡泡逐字出現與出聲同時開始；Gemini 聲音依實際長度算每字速度，手機內建聲音以每字 245ms 估算（`BROWSER_TTS_MS_PER_CHAR`），同步時一次出一個字
-  * 測試版在回覆泡泡下方小字標示「Gemini 語音朗讀」或「手機內建語音朗讀（原因）」（`.tts-tag`），原因有：今日免費額度已用完、Worker 未支援 TTS、連線逾時、Gemini 錯誤＋狀態碼；搬到正式版時要拿掉這行標示
-  * Worker 需要把前端送來的 `model` 與 `generationConfig` 原樣轉給 Gemini；若 Worker 寫死文字模型，測試版會一直用手機聲音
+  * 文字與聲音同步：語音提問時，`voicePrepare()` 先等到第一段聲音（思考中動畫多停一下），再讓泡泡逐字出現與出聲同時開始；手機內建聲音以每字 245ms 估算（`BROWSER_TTS_MS_PER_CHAR`），同步時一次出一個字
+  * 測試版在回覆泡泡下方小字標示「Gemini 語音朗讀」或「手機內建語音朗讀（原因）」（`.tts-tag`），Gemini 會附幾秒開始出聲，手機聲音會附原因（今日免費額度已用完、Worker 尚未更新、連線逾時、Gemini 錯誤＋狀態碼與訊息）和等了幾秒；搬到正式版時要拿掉這行標示
 * **語音模式（2026-10-06，測試版）**：AI 茶伴與茶款問答標題列右側「語音模式」鍵（`.vm-entry`，支援語音辨識才顯示）開啟全螢幕 `#voice-mode`，像 ChatGPT／Gemini 的語音對話
   * 流程：聆聽 → 思考 → 朗讀 → 唸完自動再聆聽（`vmListen()`）；沒聽到聲音或出錯停在待機，點光球繼續；朗讀中點光球可打斷改聽；叉叉或 Esc 離開
   * 沿用聊天室同一套送出流程（`voiceToggle(key, null, hooks)`），對話紀錄與建議按鈕都留在原本聊天室；字幕跟著聊天室泡泡逐字內容走
