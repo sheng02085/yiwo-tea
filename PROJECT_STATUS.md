@@ -420,6 +420,20 @@ AI 問答提供動態建議按鈕。
 * 茶款頁切換時還原的舊對話不播進場動畫（`addBubble` 第 5 參數 `noAnim`）
 * 減少動態效果或不支援 `element.animate`：不飛行，泡泡／按鈕只淡入，回覆整段直接顯示，圖示、跳點、游標不動
 
+## 語音對話（2026-10-06，目前只在測試版 `test/`；AI 茶伴＋茶款頁問答共用）
+
+* 狀態：先放測試版 `test/index.html` 試用，正式版 `index.html` 尚未加入；確認手機上沒問題再搬到正式版
+
+* 用瀏覽器內建 Web Speech API，**不經過 Worker、不改 Worker**：語音轉文字用 `SpeechRecognition`（`zh-TW`），朗讀用 `speechSynthesis`（優先挑 zh-TW 語音）
+* 輸入列最左邊加麥克風鍵（`.mic-btn`，圖示 `#yi-mic`）；放在輸入框**左邊**，因為 `msgSource()`／`flySend()` 靠 `input.nextElementSibling` 找送出鍵
+* 流程：按麥克風 → 輸入框提示變「正在聆聽，請說話…」、即時填入辨識文字 → 說完自動送出（走原本的 `sendCompanion()`／`askProduct()`，飛行動畫照舊）→ AI 回覆逐字出現的同時唸出來。聆聽中再按一次＝停止
+* 只有「用語音問的那一題」會唸回覆（`voiceTurn`）；打字或點建議按鈕不出聲。再按麥克風、切到背景或離開頁面會停止朗讀
+* 聆聽中：麥克風鍵變金色，外圈光環擴散（transform / opacity，只在聆聽時播）；減少動態效果改成靜態外圈
+* 不支援時：只有瀏覽器有 `SpeechRecognition` 才在 `<html>` 加 `.can-voice` 顯示麥克風；LINE／Facebook／Instagram 內建瀏覽器一律不顯示；啟動後回報 `service-not-allowed`／`language-not-supported` 也會收起麥克風。文字聊天完全不受影響
+* 錯誤提示放在輸入框 placeholder（沒權限、沒聽清楚），3.5 秒後還原
+* iOS：在按麥克風當下先播一段靜音來解鎖 `speechSynthesis`，否則 AI 回覆回來後 iOS 不讓出聲
+* 瀏覽器支援（實際能否辨識依瀏覽器而定）：Chrome（桌機／Android）、Edge、iOS 14.5+ Safari 可用；Firefox、LINE 內建瀏覽器不支援（只剩文字）。Chrome 的語音辨識會把聲音送到 Google 伺服器處理
+
 ## 按返回回到的頁面：改成快速淡入
 
 * 按返回（返回鍵、手機返回手勢、瀏覽器上一頁／下一頁）回到任何頁面時，不重播原本逐張的長淡入（品牌故事頁最長要 2.5 秒，會先看到一片空白），改成整頁快速淡入上浮：每塊 0.35 秒，最外層區塊間只錯開 60ms、最多 0.3 秒，約 0.65 秒內全部出齊
