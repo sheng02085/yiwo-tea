@@ -122,7 +122,12 @@ html.bg-hold .fluid-bg { animation-play-state: paused !important; }
 /* 測試版：標示這則回覆是 Gemini 還是手機內建聲音唸的 */
 /* 語音模式：實心深色底（不用 blur），光球只動 transform / opacity */
 .vm-entry { display: none; }
-html.can-voice .vm-entry { display: inline-flex; }
+/* 語音模式入口：金→茶綠漸層膠囊＋迷你光球（跟語音模式裡的光球同一種漸層），跟一般按鈕區隔 */
+html.can-voice .vm-entry { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px 5px 6px; border-radius: 9999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; color: #12261A; border: 1px solid rgba(255,246,216,.55);
+  background: linear-gradient(135deg, #f3dc8e 0%, #D4AF37 45%, #8fbf8a 100%); }
+.vm-dot { width: 16px; height: 16px; border-radius: 9999px; flex-shrink: 0; border: 1px solid rgba(18,38,26,.25);
+  background: radial-gradient(circle at 35% 30%, #fff6d8 0%, #e9cd78 25%, #D4AF37 50%, #6aa47c 80%, #2f6b47 100%); }
 #voice-mode { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; align-items: center; justify-content: center;
   padding: max(24px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
   background: radial-gradient(120% 80% at 50% 40%, #1d3a29 0%, #12261A 60%, #0b170f 100%); color: #fff;
@@ -1079,7 +1084,7 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
         <div class="p-4 border-b border-white/10 flex items-center gap-2">
           <span class="text-emerald-300 text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-pot"/></svg></span>
           <span class="text-sm font-bold">AI 茶伴</span>
-          <button type="button" class="vm-entry ml-auto liquid-glass-dark border border-white/20 rounded-full px-3 py-1.5 text-[11px] items-center gap-1.5 btn-bounce" onclick="vmOpen('companion')" aria-label="開啟語音模式"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg>語音模式</button>
+          <button type="button" class="vm-entry ml-auto btn-bounce" onclick="vmOpen('companion')" aria-label="開啟語音模式"><span class="vm-dot" aria-hidden="true"></span>語音模式</button>
         </div>
         <div id="companion-log" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs"></div>
         <div id="companion-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
@@ -1791,7 +1796,7 @@ function openProduct(teaId, fromHistory) {
       <div class="p-4 border-b border-white/10 flex items-center gap-2">
         <span class="text-base leading-none" style="color:${tea.color}"><svg class="yi" aria-hidden="true"><use href="#yi-chat"/></svg></span>
         <span class="text-sm font-bold">問問關於這款茶的任何事</span>
-        <button type="button" class="vm-entry ml-auto liquid-glass-dark border border-white/20 rounded-full px-3 py-1.5 text-[11px] items-center gap-1.5 btn-bounce" onclick="vmOpen('product')" aria-label="開啟語音模式"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg>語音模式</button>
+        <button type="button" class="vm-entry ml-auto btn-bounce" onclick="vmOpen('product')" aria-label="開啟語音模式"><span class="vm-dot" aria-hidden="true"></span>語音模式</button>
       </div>
       <div id="product-chat-log" class="p-4 space-y-3 max-h-[340px] overflow-y-auto text-xs"></div>
       <div id="product-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
@@ -2583,6 +2588,25 @@ function vmSet(state, status, caption) {
   if (caption != null) vmEl('vm-caption').textContent = caption;
   if (state !== 'speaking-gemini') { cancelAnimationFrame(vmLevelRaf); vmEl('vm-orb').style.transform = ''; }
 }
+// 進入語音模式的提示音（像 Gemini 那樣「叮」一聲）：用 Web Audio 現場合成兩個上揚的柔和音，不用額外音檔
+function vmChime() {
+  ttsUnlock();
+  if (!ttsCtx) return 0;
+  try {
+    const t0 = ttsCtx.currentTime + 0.02;
+    [[784, 0], [1175, 0.11]].forEach(([f, dt]) => {       // G5 → D6
+      const o = ttsCtx.createOscillator(), g = ttsCtx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, t0 + dt);
+      g.gain.setValueAtTime(0, t0 + dt);
+      g.gain.linearRampToValueAtTime(0.16, t0 + dt + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0008, t0 + dt + 0.32);
+      o.connect(g); g.connect(ttsCtx.destination);
+      o.start(t0 + dt); o.stop(t0 + dt + 0.34);
+    });
+    return 380;   // 提示音長度（毫秒），響完才開始聆聽，免得麥克風收到提示音
+  } catch (e) { return 0; }
+}
 function vmOpen(key) {
   if (!CAN_VOICE) return;
   vmKey = key;
@@ -2592,7 +2616,10 @@ function vmOpen(key) {
   box.classList.add('on');
   box.setAttribute('aria-hidden', 'false');
   document.documentElement.style.overflow = 'hidden';
-  vmListen();   // 在點擊當下開始聆聽（iOS 需要使用者手勢）
+  const wait = vmChime();
+  vmSet('idle', '', '');
+  // 提示音響完再聆聽；若瀏覽器（例如部分 iOS）不允許非點擊當下開始聆聽，會停在待機請使用者點光球
+  setTimeout(() => { if (vmKey === key && !voiceRec) vmListen(); }, wait);
 }
 function vmClose() {
   vmKey = null;
