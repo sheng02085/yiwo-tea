@@ -1935,7 +1935,7 @@ function showView(name, fromHistory, restoreY) {
   document.querySelectorAll('[data-fly-ghost]').forEach(g => g.remove());   // 送出訊息後馬上換頁：飛行中的泡泡不要飄到下一頁
   // 回到體驗館：剛才離開時還在沖泡的那杯茶，結果現在才跳出來
   if (name === 'lab' && labPendingResult) setTimeout(() => {
-    if (labPendingResult && document.getElementById('view-lab').classList.contains('active')) { labPendingResult = false; labShowResult(); }
+    if (labPendingResult && labOnDiy()) { labPendingResult = false; labShowResult(); }
   }, 500);
   if (!fromHistory) {
     const cur = history.state || {};
@@ -3291,6 +3291,8 @@ function labTab(k) {
     st.classList.add(to > from ? 'st-in-right' : 'st-in-left');
   }
   labTabNow = k;
+  // 切回 DIY 調茶：剛才切走時還在沖泡的那杯，結果現在才跳出來
+  if (k === 'diy' && labPendingResult) setTimeout(() => { if (labPendingResult && labOnDiy()) { labPendingResult = false; labShowResult(); } }, 500);
 }
 
 /* ================= 共用拖曳工具（Pointer Events，滑鼠／觸控都適用） =================
@@ -3654,9 +3656,10 @@ function labDrips() {
     labLater(() => { g.remove(); labRipple(53.8, LAB_SURFACE_FULL); }, 400);
   }, d));
 }
-var labPendingResult = false;   // 沖泡途中離開體驗館：結果等回到體驗館再跳出來，不要跳在別的頁面上
+var labPendingResult = false;   // 沖泡途中離開體驗館或切到別的關卡：結果等回到「② DIY 調茶」再跳出來，不要跳在別的頁面、關卡上
+function labOnDiy() { return document.getElementById('view-lab').classList.contains('active') && labTabNow === 'diy'; }
 function labBrewDone(btn) {
-  if (document.getElementById('view-lab').classList.contains('active')) labShowResult(); else labPendingResult = true;
+  if (labOnDiy()) labShowResult(); else labPendingResult = true;
   btn.disabled = false; btn.innerText = '再沖泡一次'; btn.classList.remove('opacity-60');
   stampSet('diy');
 }
