@@ -153,8 +153,10 @@ html.can-voice .vm-entry { display: inline-flex; align-items: center; gap: 6px; 
 #voice-mode[data-state="thinking"] .vm-orb { animation: vmThink 1.4s ease-in-out infinite; }
 @keyframes vmThink { 0%,100% { transform: scale(.86); opacity: .75; } 50% { transform: scale(.94); opacity: 1; } }
 #voice-mode[data-state="speaking-device"] .vm-orb { animation: vmTalk .9s ease-in-out infinite; }
-@keyframes vmTalk { 0%,100% { transform: scale(.96); } 50% { transform: scale(1.06); } }
+@keyframes vmTalk { 0%,100% { transform: scale(.9); } 50% { transform: scale(1); } }
 #voice-mode[data-state="idle"] .vm-orb { transform: scale(.8); opacity: .7; }
+/* Gemini 朗讀時光球由 JS 每格設定大小，不再疊 CSS 過渡（一直重設過渡在部分 Android 會跳動、閃爍） */
+#voice-mode[data-state="speaking-gemini"] .vm-orb { transition: opacity .3s ease; }
 .vm-status { margin-top: 36px; font-size: 15px; letter-spacing: .15em; color: rgba(255,255,255,.85); min-height: 1.5em; text-align: center; }
 .vm-caption { margin-top: 12px; max-width: 30em; min-height: 3em; font-size: 13px; line-height: 1.7; color: rgba(255,255,255,.55); text-align: center; }
 .vm-tea { margin-top: 14px; min-height: 36px; display: flex; justify-content: center; }
@@ -2809,12 +2811,19 @@ function vmOnSpeak(by) {
   if (by !== 'gemini' || !ttsAnalyser || REDUCE_MOTION) return;
   const data = new Uint8Array(ttsAnalyser.fftSize);
   const orb = vmEl('vm-orb');
-  const tick = () => {
+  // 音量先平滑再套用：依實際經過時間慢慢靠近目標，畫面被系統（例如調音量的面板）暫停後再回來也不會突然跳大跳小。
+  // 光球最大只放到原尺寸（scale 1），避免放大時瀏覽器重新繪製造成閃爍
+  let cur = 0, last = 0, shown = '';
+  const tick = now => {
     ttsAnalyser.getByteTimeDomainData(data);
     let sum = 0;
     for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
     const lvl = Math.min(1, Math.sqrt(sum / data.length) * 4);
-    orb.style.transform = `scale(${(0.92 + lvl * 0.22).toFixed(3)})`;
+    const dt = last ? Math.min(now - last, 50) : 16;
+    last = now;
+    cur += (lvl - cur) * (1 - Math.exp(-dt / (lvl > cur ? 70 : 160)));
+    const sc = (0.86 + cur * 0.14).toFixed(3);
+    if (sc !== shown) { orb.style.transform = `scale(${sc})`; shown = sc; }
     vmLevelRaf = requestAnimationFrame(tick);
   };
   cancelAnimationFrame(vmLevelRaf);
