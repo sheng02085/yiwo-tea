@@ -152,6 +152,10 @@ html.can-voice .vm-entry { display: inline-flex; align-items: center; gap: 6px; 
 #voice-mode[data-state="idle"] .vm-orb { transform: scale(.8); opacity: .7; }
 .vm-status { margin-top: 36px; font-size: 15px; letter-spacing: .15em; color: rgba(255,255,255,.85); min-height: 1.5em; text-align: center; }
 .vm-caption { margin-top: 12px; max-width: 30em; min-height: 3em; font-size: 13px; line-height: 1.7; color: rgba(255,255,255,.55); text-align: center; }
+.vm-tea { margin-top: 14px; min-height: 36px; display: flex; justify-content: center; }
+.vm-tea button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 9999px; font-size: 13px; font-weight: 700;
+  background: rgba(212,175,55,.92); color: #12261A; border: 1px solid rgba(255,246,216,.5); white-space: nowrap; }
+.vm-tea svg { width: 16px; height: 16px; flex-shrink: 0; }
 .vm-bottom { position: absolute; bottom: max(28px, env(safe-area-inset-bottom)); left: 0; right: 0; display: flex; justify-content: center; gap: 28px; }
 .vm-btn { width: 56px; height: 56px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 22px;
   background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); color: #fff; }
@@ -1107,6 +1111,7 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
     </button>
     <div class="vm-status" id="vm-status" aria-live="polite">正在聆聽…</div>
     <div class="vm-caption" id="vm-caption"></div>
+    <div class="vm-tea" id="vm-tea"></div>
     <div class="vm-bottom">
       <button type="button" class="vm-btn" onclick="vmTap()" id="vm-mic" aria-label="說話／停止"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></button>
       <button type="button" class="vm-btn vm-close" onclick="vmClose()" aria-label="結束語音模式"><svg viewBox="0 0 24 24" class="yi" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
@@ -2654,6 +2659,19 @@ function vmClose() {
   box.setAttribute('aria-hidden', 'true');
   document.documentElement.style.overflow = '';
   vmSet('idle', '', '');
+  vmShowTea(null);
+}
+// 語音模式裡 AI 茶伴推薦了某款茶：在字幕下方放產品傳送門按鈕，點了就離開語音模式、打開那款茶的介紹頁
+function vmShowTea(tea) {
+  const box = vmEl('vm-tea');
+  box.innerHTML = '';
+  if (!tea || vmKey !== 'companion') return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'chip-in btn-bounce';
+  btn.innerHTML = `${teaIconSVG(tea.id, "#12261A", "w-4 h-4 flex-shrink-0")}看看「${tea.name}」的完整介紹 →`;
+  btn.onclick = () => { vmClose(); openProduct(tea.id); };
+  box.appendChild(btn);
 }
 // 點光球／麥克風：聆聽中 → 停止；說話中 → 打斷並改聽；待機 → 開始聽
 function vmTap() {
@@ -2677,6 +2695,7 @@ function vmListen() {
     sent: async p => {
       if (!vmKey) return;
       voiceSpeechDone = null;
+      vmShowTea(null);
       vmSet('thinking', '思考中…', null);
       await p;                                  // 聊天室那邊回覆打完字
       if (!vmKey || key !== vmKey) return;
@@ -2839,11 +2858,13 @@ ${dbText}
     const voice = await voicePrepare('companion', reply);   // 語音提問：先備好聲音，文字和聲音同時開始
     await removeTyping('companion-log');
     const bubble = addBubble('companion-log', 'bot', '');
-    await typeIntoBubble('companion-log', bubble, reply, voiceStart(voice, bubble));
-    companionHistory.push({ role: 'bot', text: reply });
-
     // 從 AI 的回覆文字裡比對出提到的是哪一款茶，出現的話在下面加一個可以直接點過去的按鈕
     const mentionedTea = TEA_DB.find(t => reply.includes(t.name));
+    const pace = voiceStart(voice, bubble);
+    if (vmKey === 'companion') vmShowTea(mentionedTea);   // 語音模式畫面也同時顯示產品傳送門
+    await typeIntoBubble('companion-log', bubble, reply, pace);
+    companionHistory.push({ role: 'bot', text: reply });
+
     if (mentionedTea) {
       const linkWrap = document.createElement('div');
       linkWrap.className = 'flex justify-start mt-1 chip-in';
