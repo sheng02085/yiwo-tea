@@ -2588,23 +2588,37 @@ function vmSet(state, status, caption) {
   if (caption != null) vmEl('vm-caption').textContent = caption;
   if (state !== 'speaking-gemini') { cancelAnimationFrame(vmLevelRaf); vmEl('vm-orb').style.transform = ''; }
 }
-// 進入語音模式的提示音（像 Gemini 那樣「叮」一聲）：用 Web Audio 現場合成兩個上揚的柔和音，不用額外音檔
+// 進入語音模式的提示音：用 Web Audio 現場合成，不用額外音檔。網址加 ?chime=bubble|bell|drop 可試聽不同音色（預設 bubble）
+const VM_CHIMES = {
+  // 柔和上滑的「啵～」：像 Gemini 開啟語音時那種輕盈的上揚音
+  bubble: [{ type: 'sine', f0: 440, f1: 880, glide: 0.16, at: 0, peak: 0.14, attack: 0.03, len: 0.42 },
+           { type: 'sine', f0: 880, f1: 1760, glide: 0.16, at: 0, peak: 0.035, attack: 0.03, len: 0.30 }],
+  // 溫潤的單音鐘聲：基音加一個高泛音，慢慢消散
+  bell:   [{ type: 'sine', f0: 659, at: 0, peak: 0.13, attack: 0.008, len: 0.9 },
+           { type: 'sine', f0: 1648, at: 0, peak: 0.03, attack: 0.008, len: 0.45 }],
+  // 水滴般的短促「咚」：快速下滑後收尾
+  drop:   [{ type: 'sine', f0: 1200, f1: 520, glide: 0.09, at: 0, peak: 0.15, attack: 0.005, len: 0.28 }]
+};
+const VM_CHIME = VM_CHIMES[new URLSearchParams(location.search).get('chime')] ? new URLSearchParams(location.search).get('chime') : 'bubble';
 function vmChime() {
   ttsUnlock();
   if (!ttsCtx) return 0;
   try {
     const t0 = ttsCtx.currentTime + 0.02;
-    [[784, 0], [1175, 0.11]].forEach(([f, dt]) => {       // G5 → D6
-      const o = ttsCtx.createOscillator(), g = ttsCtx.createGain();
-      o.type = 'sine';
-      o.frequency.setValueAtTime(f, t0 + dt);
-      g.gain.setValueAtTime(0, t0 + dt);
-      g.gain.linearRampToValueAtTime(0.16, t0 + dt + 0.015);
-      g.gain.exponentialRampToValueAtTime(0.0008, t0 + dt + 0.32);
+    let end = 0;
+    VM_CHIMES[VM_CHIME].forEach(n => {
+      const o = ttsCtx.createOscillator(), g = ttsCtx.createGain(), t = t0 + n.at;
+      o.type = n.type;
+      o.frequency.setValueAtTime(n.f0, t);
+      if (n.f1) o.frequency.exponentialRampToValueAtTime(n.f1, t + n.glide);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(n.peak, t + n.attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + n.len);
       o.connect(g); g.connect(ttsCtx.destination);
-      o.start(t0 + dt); o.stop(t0 + dt + 0.34);
+      o.start(t); o.stop(t + n.len + 0.02);
+      end = Math.max(end, n.at + n.len);
     });
-    return 380;   // 提示音長度（毫秒），響完才開始聆聽，免得麥克風收到提示音
+    return Math.round(Math.min(end, 0.45) * 1000) + 40;   // 響完（或主要部分結束）才開始聆聽，免得麥克風收到提示音
   } catch (e) { return 0; }
 }
 function vmOpen(key) {
