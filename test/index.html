@@ -183,7 +183,8 @@ html.can-voice .mic-btn { display: flex; }
 
 .chip { transition: transform .15s ease, opacity .15s ease; }
 /* iPhone：輸入框字小於 16px，點進去會自動放大畫面而且不會縮回來 */
-@media (pointer: coarse) { #companion-input, #product-chat-input { font-size: 16px; } }
+/* 手機上輸入的字用 16px（iPhone 才不會自動放大畫面），提示文字維持小一點 */
+@media (pointer: coarse) { #companion-input, #product-chat-input { font-size: 16px; } #companion-input::placeholder, #product-chat-input::placeholder { font-size: 13px; } }
 .chip:active { transform: scale(.95); }
 
 #tea-scroll::-webkit-scrollbar { display: none; }
@@ -1112,10 +1113,10 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
         </div>
         <div id="companion-log" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs" style="max-height:min(55vh, 520px)"></div>
         <div id="companion-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
-        <div class="p-3 border-t border-white/10 flex gap-2">
+        <div class="p-3 border-t border-white/10 flex items-center gap-2">
           <button type="button" class="mic-btn w-10 h-10 flex-shrink-0 rounded-full liquid-glass-dark border border-white/20 items-center justify-center btn-bounce" onclick="voiceToggle('companion', this)" aria-label="語音輸入" title="按一下說話"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></span></button>
-          <input id="companion-input" type="text" placeholder="想放鬆一下 / 最近外食比較多 / 想喝點溫暖的…" maxlength="200" class="flex-1 liquid-glass-dark rounded-full px-4 py-2.5 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229) sendCompanion()">
-          <button onclick="sendCompanion()" class="w-10 h-10 rounded-full bg-emerald-400 text-tea-dark flex items-center justify-center btn-bounce"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-send"/></svg></span></button>
+          <input id="companion-input" type="text" placeholder="說說你今天的狀態或心情…" maxlength="200" class="chat-input flex-1 min-w-0 h-10 liquid-glass-dark rounded-full px-4 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229) sendCompanion()">
+          <button onclick="sendCompanion()" aria-label="送出" class="w-10 h-10 flex-shrink-0 rounded-full bg-emerald-400 text-tea-dark flex items-center justify-center btn-bounce"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-send"/></svg></span></button>
         </div>
       </div>
     </section>
@@ -1833,10 +1834,10 @@ function openProduct(teaId, fromHistory) {
       </div>
       <div id="product-chat-log" class="p-4 space-y-3 max-h-[340px] overflow-y-auto text-xs"></div>
       <div id="product-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
-      <div class="p-3 border-t border-white/10 flex gap-2">
+      <div class="p-3 border-t border-white/10 flex items-center gap-2">
         <button type="button" class="mic-btn w-10 h-10 flex-shrink-0 rounded-full liquid-glass-dark border border-white/20 items-center justify-center btn-bounce" onclick="voiceToggle('product', this)" aria-label="語音輸入" title="按一下說話"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></span></button>
-        <input id="product-chat-input" type="text" placeholder="輸入你的問題…" maxlength="200" class="flex-1 liquid-glass-dark rounded-full px-4 py-2.5 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229) askProduct()">
-        <button onclick="askProduct()" class="w-10 h-10 rounded-full flex items-center justify-center btn-bounce" style="background:${tea.color}; color:#12261A"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-send"/></svg></span></button>
+        <input id="product-chat-input" type="text" placeholder="輸入你的問題…" maxlength="200" class="chat-input flex-1 min-w-0 h-10 liquid-glass-dark rounded-full px-4 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229) askProduct()">
+        <button onclick="askProduct()" aria-label="送出" class="w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center btn-bounce" style="background:${tea.color}; color:#12261A"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-send"/></svg></span></button>
       </div>
     </div>`;
 
