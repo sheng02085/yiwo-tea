@@ -2963,6 +2963,7 @@ ${tm.text}。
   } catch (e) { console.warn('[greet]', e); return fallback; }
 }
 async function startCompanion() {
+  if (labChatPending) { setTimeout(companionSendPending, 450); return; }   // 從調茶結果過來：不打招呼，直接聊那杯茶
   chatBusy.companion = true;   // 開場白還沒出來前先不收訊息，不然問題會排在招呼語前面
   addTyping('companion-log');
   const text = await companionGreeting();
@@ -3022,6 +3023,7 @@ ${dbText}
 【語言規範】一律使用臺灣繁體中文與臺灣慣用語回答，即使使用者用簡體字、其他語言或語音辨識出的錯字提問，也只能用繁體中文回答，絕對不能出現任何簡體字。
 請以專業、簡潔、像品茶師介紹茶葉的語氣回覆，格式參考：「今天的你可以試試『茶名』，用一句話說明為什麼適合、能帶來什麼感受。」
 只推薦清單裡的一款，茶名一定要寫完整（例如『一握・輕盈』），不要編造清單以外的茶。控制在 80 字以內，用純文字，不要使用 Markdown 符號，不要條列，不要使用任何 emoji 表情符號。
+如果使用者聊的是他在體驗館自己調的茶，先用一兩句描述那杯茶的香氣、口感和適合喝的時刻（只講風味與感受），再點出清單裡最接近的一款『茶名』，可以順口提到用到的配料。
 現在的時間：${teaMoment().text}。推薦時可以順口帶到時段或節氣的氛圍（只講季節意象，不要描述實際天氣，也不要扯到養生進補）。
 使用者前面說過的話你都記得，如果使用者接著問「這款茶的介紹」「為什麼推薦這款」之類的問題，直接針對你剛剛推薦的那一款回答，不要反問使用者是指哪一款。
 【重要規範】絕對不能使用「燃脂」「排油」「減肥」「瘦身」「代謝」「消脂」等暗示醫療或減重功效的字眼，即使使用者主動問也一樣。只能描述風味與情境上的舒適感（例如餐後清爽），並清楚說明茶飲不具醫療或減重功效，不要用任何轉折語氣暗示它「還是有幫助」。
@@ -3837,6 +3839,27 @@ function labNameStore() {
   try { sessionStorage.setItem('yw-mytea', JSON.stringify(myTea)); } catch (e) {}
   if (stamps.length === STAMP_DEFS.length) renderStamps();   // 證書已經出現：換上新的茶名、重畫證書圖片
 }
+// 帶著這杯茶去 AI 茶伴：茶伴已經知道配方和茶名，替使用者先問一句，AI 直接聊這杯茶
+let labChatPending = null;
+function labChatTea() {
+  const t = +document.getElementById('lab-temp').value, m = +document.getElementById('lab-time').value;
+  const ings = labPicked.map(id => LAB_INGS.find(x => x.id === id).name).join('、');
+  labChatPending = `我在一握體驗館調了一杯茶，取名「${labName}」：${ings ? '佛手烏龍加' + ings : '純佛手烏龍'}，${t}°C 浸泡 ${m} 分鐘。這杯喝起來會是什麼感覺？`;
+  history.replaceState(Object.assign({}, history.state, { modal: true }), '');   // 按返回回到體驗館時重新打開結果視窗
+  labModalClose(true);
+  const fresh = document.getElementById('companion-log').children.length === 0;
+  showView('companion');   // 第一次打開茶伴：startCompanion() 會改成直接聊這杯茶，不打招呼
+  if (!fresh) setTimeout(companionSendPending, 450);
+}
+function companionSendPending() {
+  const text = labChatPending;
+  if (!text) return;
+  labChatPending = null;
+  const input = document.getElementById('companion-input');
+  input.value = text;
+  if (chatBusy.companion) return;   // 茶伴還在回上一題：問題先放在輸入列，讓使用者自己按送出
+  sendCompanion();
+}
 function certMyTea() {
   try { const t = JSON.parse(sessionStorage.getItem('yw-mytea') || 'null'); return t && t.name ? t : null; } catch (e) { return null; }
 }
@@ -3871,7 +3894,8 @@ function labNameRender() {
       <div class="flex justify-center gap-2 mt-2 text-[11px]">
         <button onclick="labNameEdit()" class="${btn}">自己改名</button>
         <button onclick="labNameAI()" class="${btn}">換一個</button>
-      </div>`;
+      </div>
+      <button onclick="labChatTea()" class="mt-3 text-xs font-bold text-emerald-300 btn-bounce">跟 AI 茶伴聊聊這杯茶 →</button>`;
     document.getElementById('lab-name-text').textContent = `「${labName}」`;
   } else box.innerHTML = '';
 }
