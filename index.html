@@ -60,13 +60,18 @@ html.bg-hold .fluid-bg { animation-play-state: paused !important; }
 }
 @keyframes popIn { 0% { opacity: 0; transform: translateY(20px) scale(0.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
 .node-reveal { animation: popIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
-/* 體驗館 DIY 調茶：iPhone 長按拖曳配料時不要跑出選取範圍與系統選單 */
+/* 體驗館：iPhone 長按時不要跑出選取範圍與系統選單 */
 .lab-noselect, .lab-noselect * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .drag-ghost { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 /* 按返回回到的頁面：不重播原本逐張的長淡入，改成整頁快速淡入上浮（約 0.35 秒，區塊間只錯開 60ms、最多 0.3 秒；見 showView） */
 .view.back-nav.node-reveal { animation: none !important; }
 .fade-in-block.shown, .scroll-fade.shown { opacity: 0; animation: fadeInUp .35s cubic-bezier(.16,1,.3,1) var(--bd, 0ms) forwards !important; }
 @media (prefers-reduced-motion: reduce) { .fade-in-block.shown, .scroll-fade.shown { animation: none !important; opacity: 1 !important; } }
+/* 減少動態效果：頁面與區塊淡入、流動底色一律改成靜態直接顯示 */
+@media (prefers-reduced-motion: reduce) {
+  .fade-in-block, .scroll-fade, .scroll-fade.in-view, .node-reveal { animation: none !important; opacity: 1 !important; transform: none !important; }
+  html, body, .fluid-bg { animation: none !important; }
+}
 .btn-bounce:active { transform: scale(0.95); transition: transform .1s ease; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -117,7 +122,66 @@ html.bg-hold .fluid-bg { animation-play-state: paused !important; }
   .think-dot { opacity: .6; }
 }
 
-.chip { transition: all .15s ease; }
+/* 語音對話：麥克風鍵（瀏覽器支援語音辨識才顯示）；聆聽中外圈光環一圈圈擴散（只動 transform / opacity） */
+.mic-btn { display: none; position: relative; }
+/* 測試版：標示這則回覆是 Gemini 還是手機內建聲音唸的 */
+/* 語音模式：實心深色底（不用 blur），光球只動 transform / opacity */
+.vm-entry { display: none; }
+/* 語音模式入口：金→茶綠漸層膠囊＋迷你光球（跟語音模式裡的光球同一種漸層），跟一般按鈕區隔 */
+html.can-voice .vm-entry { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px 5px 6px; border-radius: 9999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; color: #12261A; border: 1px solid rgba(255,246,216,.55);
+  background: linear-gradient(135deg, #f3dc8e 0%, #D4AF37 45%, #8fbf8a 100%); }
+.vm-dot { width: 16px; height: 16px; border-radius: 9999px; flex-shrink: 0; border: 1px solid rgba(18,38,26,.25);
+  background: radial-gradient(circle at 35% 30%, #fff6d8 0%, #e9cd78 25%, #D4AF37 50%, #6aa47c 80%, #2f6b47 100%); }
+#voice-mode { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  background: radial-gradient(120% 80% at 50% 40%, #1d3a29 0%, #12261A 60%, #0b170f 100%); color: #fff;
+  opacity: 0; visibility: hidden; transition: opacity .3s ease, visibility 0s linear .3s; }
+#voice-mode.on { opacity: 1; visibility: visible; transition: opacity .3s ease; }
+.vm-top { position: absolute; top: max(24px, env(safe-area-inset-top)); left: 0; right: 0; text-align: center; }
+.vm-top span { display: block; }
+#vm-title { font-size: 18px; font-weight: 700; color: #D4AF37; letter-spacing: .1em; }
+.vm-sub { font-size: 11px; color: rgba(255,255,255,.45); letter-spacing: .3em; margin-top: 2px; }
+.vm-orb-btn { position: relative; width: min(56vw, 240px); height: min(56vw, 240px); border-radius: 9999px; background: none; border: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+.vm-orb { position: absolute; inset: 0; border-radius: 9999px; will-change: transform;
+  background: radial-gradient(circle at 35% 30%, #fff6d8 0%, #e9cd78 22%, #D4AF37 45%, #6aa47c 78%, #2f6b47 100%);
+  transition: transform .12s ease-out, opacity .3s ease; }
+.vm-ring { position: absolute; inset: 0; border-radius: 9999px; border: 2px solid rgba(212,175,55,.55); opacity: 0; pointer-events: none; }
+#voice-mode[data-state="listening"] .vm-ring { animation: vmRing 1.8s ease-out infinite; }
+#voice-mode[data-state="listening"] .vm-ring2 { animation-delay: .9s; }
+@keyframes vmRing { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(1.45); } }
+#voice-mode[data-state="thinking"] .vm-orb { animation: vmThink 1.4s ease-in-out infinite; }
+@keyframes vmThink { 0%,100% { transform: scale(.86); opacity: .75; } 50% { transform: scale(.94); opacity: 1; } }
+#voice-mode[data-state="speaking-device"] .vm-orb { animation: vmTalk .9s ease-in-out infinite; }
+@keyframes vmTalk { 0%,100% { transform: scale(.96); } 50% { transform: scale(1.06); } }
+#voice-mode[data-state="idle"] .vm-orb { transform: scale(.8); opacity: .7; }
+.vm-status { margin-top: 36px; font-size: 15px; letter-spacing: .15em; color: rgba(255,255,255,.85); min-height: 1.5em; text-align: center; }
+.vm-caption { margin-top: 12px; max-width: 30em; min-height: 3em; font-size: 13px; line-height: 1.7; color: rgba(255,255,255,.55); text-align: center; }
+.vm-tea { margin-top: 14px; min-height: 36px; display: flex; justify-content: center; }
+.vm-tea button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 9999px; font-size: 13px; font-weight: 700;
+  background: rgba(212,175,55,.92); color: #12261A; border: 1px solid rgba(255,246,216,.5); white-space: nowrap; }
+.vm-tea svg { width: 16px; height: 16px; flex-shrink: 0; }
+.vm-bottom { position: absolute; bottom: max(28px, env(safe-area-inset-bottom)); left: 0; right: 0; display: flex; justify-content: center; gap: 28px; }
+.vm-btn { width: 56px; height: 56px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 22px;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); color: #fff; }
+#voice-mode[data-state="listening"] #vm-mic { background: #D4AF37; color: #12261A; border-color: #D4AF37; }
+.vm-close { background: rgba(255,255,255,.14); }
+@media (prefers-reduced-motion: reduce) {
+  #voice-mode .vm-ring, #voice-mode .vm-orb { animation: none !important; transition: none; }
+  #voice-mode[data-state="listening"] .vm-ring { opacity: .5; transform: scale(1.15); }
+}
+.tts-tag { font-size: 10px; color: rgba(255,255,255,.4); margin: 2px 0 0 4px; letter-spacing: .05em; }
+html.can-voice .mic-btn { display: flex; }
+.mic-btn.mic-on { background: #D4AF37; color: #12261A; }
+.mic-btn.mic-on::after { content: ''; position: absolute; inset: 0; border-radius: 9999px; border: 2px solid #D4AF37; animation: micRing 1.2s ease-out infinite; pointer-events: none; }
+@keyframes micRing { from { opacity: .8; transform: scale(1); } to { opacity: 0; transform: scale(1.6); } }
+@media (prefers-reduced-motion: reduce) {
+  .mic-btn.mic-on::after { animation: none; opacity: .6; transform: scale(1.18); }
+}
+
+.chip { transition: transform .15s ease, opacity .15s ease; }
+/* iPhone：輸入框字小於 16px，點進去會自動放大畫面而且不會縮回來 */
+@media (pointer: coarse) { #companion-input, #product-chat-input { font-size: 16px; } }
 .chip:active { transform: scale(.95); }
 
 #tea-scroll::-webkit-scrollbar { display: none; }
@@ -294,8 +358,13 @@ html.bg-hold .fluid-bg { animation-play-state: paused !important; }
 
 @keyframes leafPop { 0% { transform: scale(1); } 40% { transform: scale(1.12) rotate(-4deg); } 100% { transform: scale(1); } }
 .leaf-pop { animation: leafPop .35s ease; }
-@keyframes padPulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(212,175,55,.7); } 35% { transform: scale(.965); } 100% { transform: scale(1); box-shadow: 0 0 0 16px rgba(212,175,55,0); } }
+@keyframes padPulse { 0% { transform: scale(1); } 35% { transform: scale(.965); } 100% { transform: scale(1); } }   /* 只動 transform，不做會動的陰影 */
 .pad-pulse { animation: padPulse .45s ease-out; }
+/* 長按焙火的金色光圈：原本用會動的陰影，改成一圈金框往外擴散淡出（只動 transform／opacity）。
+   放在茶盤外面一層（茶盤本身 overflow:hidden 會把光圈切掉） */
+.pad-ring { position: absolute; pointer-events: none; border: 2px solid rgba(212,175,55,.75); border-radius: 1rem;
+  will-change: transform, opacity; animation: padRing .45s ease-out forwards; }
+@keyframes padRing { from { opacity: .9; transform: scale(1); } to { opacity: 0; transform: scale(1.11); } }
 #lab-hint:empty { display: none; }
 @keyframes modalBgIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalIn { from { opacity: 0; transform: translateY(18px) scale(.95); } to { opacity: 1; transform: none; } }
@@ -350,13 +419,20 @@ html.bg-hold .fluid-bg { animation-play-state: paused !important; }
 /* 步驟進度條（Uber Eats 式）：完成＝實心、進行中＝一道光持續掃過並依進度填滿 */
 .seg { position: relative; height: 6px; border-radius: 9999px; background: rgba(255,255,255,.15); overflow: hidden; }
 .seg.active { background: rgba(212,175,55,.28); }
-.seg-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: #D4AF37; transition: width .3s ease; }
+.seg-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #D4AF37; transform-origin: left center; transition: transform .3s ease; }   /* 用 scaleX 填滿（外框 overflow:hidden 負責圓角） */
 .seg.active::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 45%;
   background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,240,200,.75), rgba(255,255,255,0));
   animation: segSweep 1.3s ease-in-out infinite; }
 @keyframes segSweep { from { transform: translateX(-110%); } to { transform: translateX(240%); } }
 @keyframes stampIn { 0% { opacity: 0; transform: scale(1.8) rotate(-12deg); } 60% { opacity: 1; transform: scale(.92) rotate(-12deg); } 100% { opacity: 1; transform: scale(1) rotate(-12deg); } }
 .stamp-in { animation: stampIn .5s cubic-bezier(.2,1.4,.4,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .seg.active::after, .st-in-right, .st-in-left, .pad-pulse { animation: none; }
+  .pad-ring { display: none; }
+  .stamp-in { animation: none; opacity: 1; transform: rotate(-12deg); }
+  #lab-modal .modal-card { animation: modalBgIn .2s ease; }
+  #tab-ind, .seg-fill { transition: none !important; }
+}
 @media (min-width: 768px) { #ai-panel, #lab-panel { width: 100% !important; } }
 
 @keyframes fadeInUp {
@@ -600,6 +676,7 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
     <symbol id="yi-brush" viewBox="0 0 24 24"><path d="M20.5 3.5 12.3 11.7"/><path d="M10.6 10.3l3.1 3.1"/><path d="M10.6 12.2c-2.4-.4-4.4 1-4.9 3.4-.4 2-1.5 3.3-3.2 3.9 3.5.9 7.4.3 8.8-2.4.7-1.4.6-3.1-.7-4.9z" fill="currentColor" fill-opacity=".22"/></symbol>
     <symbol id="yi-scroll" viewBox="0 0 24 24"><path d="M6.5 5h11v14h-11z" fill="currentColor" fill-opacity=".22"/><path d="M4 5h16M4 19h16"/><path d="M9 5l3-2.5L15 5"/><path d="M12 8.5v7M9.5 8.5v4.5M14.5 11v4.5"/></symbol>
     <symbol id="yi-chat" viewBox="0 0 24 24"><path d="M5 4.5h14a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-7.5L6 21v-4H5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2z" fill="currentColor" fill-opacity=".22"/><circle cx="8.5" cy="10.8" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="10.8" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.8" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="yi-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" fill-opacity=".22"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/><path d="M8.5 21h7"/></symbol>
     <symbol id="yi-send" viewBox="0 0 24 24"><path d="M21 3 3.5 10.2l7 3.3 3.3 7z" fill="currentColor" fill-opacity=".22"/><path d="M21 3 10.5 13.5"/></symbol>
     <symbol id="yi-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.2" fill="currentColor" fill-opacity=".22"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="M12 15v2.2"/></symbol>
     <symbol id="yi-tap" viewBox="0 0 24 24"><path d="M10 13V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M13 10.5a1.5 1.5 0 0 1 3 0V12"/><path d="M16 11.5a1.5 1.5 0 0 1 3 0V15c0 3.6-2.5 6-6 6h-1c-2.1 0-3.5-.9-4.7-2.5l-2.8-3.8a1.5 1.5 0 0 1 2.4-1.8L10 15"/><path d="M6.5 4.5 5 3M6 7.5H4"/></symbol>
@@ -802,7 +879,7 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
           <div class="fluid-bg absolute inset-0 pointer-events-none" style="background-image:linear-gradient(-45deg, #140F08, #3A2A12, #5C4415, #1E160A); background-size:400% 400%; animation: fluidBackground 18s ease infinite; animation-delay:-9s"></div>
           <div class="relative">
             <div class="font-serif font-bold text-3xl md:text-xl lg:text-2xl">一握體驗館</div>
-            <div class="text-sm md:text-xs lg:text-base text-white/75 mt-2">製茶工序•茶飲DIY•茶知識問答</div>
+            <div class="text-sm md:text-xs lg:text-base text-white/75 mt-2">製茶工序・DIY 調茶・茶知識問答</div>
             <div class="text-xs lg:text-sm text-white/45 mt-1">集滿三個章，領取製茶證書</div>
             <span class="inline-block mt-5 px-6 py-2 rounded-full text-sm font-bold bg-tea-gold text-tea-dark">開始體驗</span>
             <div class="mt-8 md:mt-6 drop-shadow-lg">
@@ -888,13 +965,13 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
         <div class="liquid-glass rounded-[2rem] p-6 lg:p-8 text-center fade-in-block" style="animation-delay:0ms">
           <span class="text-[10px] font-mono bg-tea-gold text-tea-dark font-bold px-2 py-1 rounded">互動體驗</span>
           <h2 class="font-serif text-3xl font-bold mt-3">一握體驗館</h2>
-          <p class="text-xs lg:text-sm text-white/60 mt-2 leading-relaxed">製茶工序•茶飲DIY•茶知識問答<br>集滿三個章，領取製茶證書</p>
+          <p class="text-xs lg:text-sm text-white/60 mt-2 leading-relaxed">製茶工序・DIY 調茶・茶知識問答<br>集滿三個章，領取製茶證書</p>
           <button onclick="labIntro()" class="mt-3 text-[11px] text-tea-gold underline underline-offset-4">關卡說明</button>
         </div>
 
         <!-- 關卡切換 -->
         <div id="lab-tabs" class="relative liquid-glass-dark rounded-full p-1 flex gap-1 border border-white/10 fade-in-block" style="animation-delay:600ms">
-          <div id="tab-ind" class="absolute top-1 bottom-1 rounded-full bg-tea-gold shadow-[0_0_14px_rgba(212,175,55,.35)]" style="--i:0; width:calc((100% - 16px) / 3); left:calc(4px + var(--i) * ((100% - 16px) / 3 + 4px)); transition:left .45s cubic-bezier(.65,0,.35,1)"></div>
+          <div id="tab-ind" class="absolute top-1 bottom-1 rounded-full bg-tea-gold shadow-[0_0_14px_rgba(212,175,55,.35)]" style="--i:0; width:calc((100% - 16px) / 3); left:4px; transform:translateX(calc(var(--i) * (100% + 4px))); transition:transform .45s cubic-bezier(.65,0,.35,1)"></div>
           <button id="tab-process" onclick="labTab('process')" class="relative z-10 flex-1 py-2.5 text-xs font-bold rounded-full transition-colors duration-300">① 製茶工序</button>
           <button id="tab-diy" onclick="labTab('diy')" class="relative z-10 flex-1 py-2.5 text-xs font-bold rounded-full transition-colors duration-300">② DIY 調茶</button>
           <button id="tab-quiz" onclick="labTab('quiz')" class="relative z-10 flex-1 py-2.5 text-xs font-bold rounded-full transition-colors duration-300">③ 茶知識問答</button>
@@ -908,8 +985,8 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
           <!-- 第二站：DIY 調茶 -->
           <div id="st-diy" class="space-y-4 hidden lab-noselect">
             <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10">
-              <h3 class="text-tea-gold font-bold text-sm mb-1">① 把配料拖進杯子裡</h3>
-              <p class="text-[11px] text-white/45 mb-3">最多 3 種；拖進杯子加入，點一下已加入的配料可以拿掉</p>
+              <h3 class="text-tea-gold font-bold text-sm mb-1">① 點選配料加入杯子</h3>
+              <p class="text-[11px] text-white/45 mb-3">最多 3 種；點一下加入，再點一下可以拿掉</p>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 items-center">
                 <!-- 杯子：手機在上面，平板／電腦在右邊 -->
                 <div class="md:order-2 flex flex-col items-center pt-8">
@@ -1029,17 +1106,35 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
         <div class="p-4 border-b border-white/10 flex items-center gap-2">
           <span class="text-emerald-300 text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-pot"/></svg></span>
           <span class="text-sm font-bold">AI 茶伴</span>
+          <button type="button" class="vm-entry ml-auto btn-bounce" onclick="vmOpen('companion')" aria-label="開啟語音模式"><span class="vm-dot" aria-hidden="true"></span>語音模式</button>
         </div>
-        <div id="companion-log" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs"></div>
+        <div id="companion-log" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs" style="max-height:min(55vh, 520px)"></div>
         <div id="companion-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
         <div class="p-3 border-t border-white/10 flex gap-2">
-          <input id="companion-input" type="text" placeholder="想放鬆一下 / 最近外食比較多 / 想喝點溫暖的…" class="flex-1 liquid-glass-dark rounded-full px-4 py-2.5 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter') sendCompanion()">
+          <button type="button" class="mic-btn w-10 h-10 flex-shrink-0 rounded-full liquid-glass-dark border border-white/20 items-center justify-center btn-bounce" onclick="voiceToggle('companion', this)" aria-label="語音輸入" title="按一下說話"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></span></button>
+          <input id="companion-input" type="text" placeholder="想放鬆一下 / 最近外食比較多 / 想喝點溫暖的…" maxlength="200" class="flex-1 liquid-glass-dark rounded-full px-4 py-2.5 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229) sendCompanion()">
           <button onclick="sendCompanion()" class="w-10 h-10 rounded-full bg-emerald-400 text-tea-dark flex items-center justify-center btn-bounce"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-send"/></svg></span></button>
         </div>
       </div>
     </section>
 
   </main>
+
+  <!-- 語音模式（全螢幕，像 ChatGPT／Gemini 的語音對話）：聆聽 → 思考 → 朗讀 → 自動再聆聽 -->
+  <div id="voice-mode" role="dialog" aria-modal="true" aria-label="語音模式" aria-hidden="true">
+    <div class="vm-top"><span class="font-serif" id="vm-title">AI 茶伴</span><span class="vm-sub">語音模式</span></div>
+    <button type="button" class="vm-orb-btn" onclick="vmTap()" aria-label="點一下說話">
+      <span class="vm-ring"></span><span class="vm-ring vm-ring2"></span>
+      <span class="vm-orb" id="vm-orb"></span>
+    </button>
+    <div class="vm-status" id="vm-status" aria-live="polite">正在聆聽…</div>
+    <div class="vm-caption" id="vm-caption"></div>
+    <div class="vm-tea" id="vm-tea"></div>
+    <div class="vm-bottom">
+      <button type="button" class="vm-btn" onclick="vmTap()" id="vm-mic" aria-label="說話／停止"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></button>
+      <button type="button" class="vm-btn vm-close" onclick="vmClose()" aria-label="結束語音模式"><svg viewBox="0 0 24 24" class="yi" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+  </div>
 
 <script>
 /* =========================================================
@@ -1143,6 +1238,8 @@ const TEA_DB = [
 
 let currentTeaId = null;
 const productLogs = {};
+const productBusy = {};      // 各茶款各自的「回覆中」；chatBusy.product 指目前畫面上這款
+let productThinking = null;  // 正在等 AI 回覆（還沒開始打字）的茶款
 
 // 把一段文字拆成一句一句，回傳帶淡入動畫、各自延遲出場的 span 組合
 function splitSentences(text) {
@@ -1730,11 +1827,13 @@ function openProduct(teaId, fromHistory) {
       <div class="p-4 border-b border-white/10 flex items-center gap-2">
         <span class="text-base leading-none" style="color:${tea.color}"><svg class="yi" aria-hidden="true"><use href="#yi-chat"/></svg></span>
         <span class="text-sm font-bold">問問關於這款茶的任何事</span>
+        <button type="button" class="vm-entry ml-auto btn-bounce" onclick="vmOpen('product')" aria-label="開啟語音模式"><span class="vm-dot" aria-hidden="true"></span>語音模式</button>
       </div>
       <div id="product-chat-log" class="p-4 space-y-3 max-h-[340px] overflow-y-auto text-xs"></div>
       <div id="product-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
       <div class="p-3 border-t border-white/10 flex gap-2">
-        <input id="product-chat-input" type="text" placeholder="輸入你的問題…" class="flex-1 liquid-glass-dark rounded-full px-4 py-2.5 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter') askProduct()">
+        <button type="button" class="mic-btn w-10 h-10 flex-shrink-0 rounded-full liquid-glass-dark border border-white/20 items-center justify-center btn-bounce" onclick="voiceToggle('product', this)" aria-label="語音輸入" title="按一下說話"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></span></button>
+        <input id="product-chat-input" type="text" placeholder="輸入你的問題…" maxlength="200" class="flex-1 liquid-glass-dark rounded-full px-4 py-2.5 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229) askProduct()">
         <button onclick="askProduct()" class="w-10 h-10 rounded-full flex items-center justify-center btn-bounce" style="background:${tea.color}; color:#12261A"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-send"/></svg></span></button>
       </div>
     </div>`;
@@ -1746,7 +1845,9 @@ function openProduct(teaId, fromHistory) {
       icon: teaIconSVG(tea.id, tea.color, 'yi-tea') }];
   }
   productLogs[teaId].forEach(m => addBubble('product-chat-log', m.role, m.text, m.icon, true));
-  renderProductChips();
+  // 離開時這款茶的問題還在等回覆：回來時補上「思考中」，按鈕等回覆好再出現
+  if (productThinking === teaId) addTyping('product-chat-log');
+  else if (!productBusy[teaId]) renderProductChips();
 
   showView('product', fromHistory);
   // 茶款頁顯示後才初始化茶罐，確保量得到實際尺寸
@@ -1793,11 +1894,13 @@ function goToTeas() {
   try { heroBusyUntil = 0; } catch (e) {}
   // 畫面捲到茶款區的過程中先鎖住飲品圖示動畫，等畫面停下來才開放
   try { lockHoverIcons(); } catch (e) {}
-  showView('landing');
+  // 已經在首頁：直接平滑捲過去，不要先跳回頂端再捲下來
+  const onLanding = document.getElementById('view-landing').classList.contains('active');
+  if (!onLanding) showView('landing');
   setTimeout(() => {
     document.getElementById('tea-section').scrollIntoView({ behavior: 'smooth' });
     try { unlockHoverIconsWhenStill(); } catch (e) {}
-  }, 350);
+  }, onLanding ? 0 : 350);
 }
 
 function forceIOSRepaint(el) {
@@ -1824,6 +1927,13 @@ function showView(name, fromHistory, restoreY) {
   const views = document.querySelectorAll('.view');
   const target = document.getElementById('view-' + name);
   if (!target) return;
+  // 換頁（含手機返回鍵）：關掉語音模式、停止收音和朗讀，不讓聲音跟到別頁
+  try { if (vmKey) vmClose(); voiceAbort(); stopSpeaking(); voiceTurn.companion = voiceTurn.product = false; } catch (e) {}   // 頁面剛載入、語音程式還沒初始化時會跳過
+  document.querySelectorAll('[data-fly-ghost]').forEach(g => g.remove());   // 送出訊息後馬上換頁：飛行中的泡泡不要飄到下一頁
+  // 回到體驗館：剛才離開時還在沖泡的那杯茶，結果現在才跳出來
+  if (name === 'lab' && labPendingResult) setTimeout(() => {
+    if (labPendingResult && document.getElementById('view-lab').classList.contains('active')) { labPendingResult = false; labShowResult(); }
+  }, 500);
   if (!fromHistory) {
     const cur = history.state || {};
     const same = cur.v === name && (name !== 'product' || cur.t === currentTeaId);
@@ -1922,6 +2032,7 @@ function addBubble(logId, role, text, iconHTML, noAnim) {
     : 'liquid-glass-dark border border-white/10 rounded-2xl rounded-tl-sm px-4 py-2.5 max-w-[85%] text-white/85 leading-relaxed';
   bubble.innerText = text;
   bubble.style.maxWidth = role === 'user' ? '80%' : '85%';
+  bubble.style.overflowWrap = 'anywhere';   // 貼上很長的網址也不會撐破泡泡
   if (!noAnim) bubble.classList.add(role === 'user' ? 'msg-in-user' : 'msg-in-bot');
   if (iconHTML) bubble.insertAdjacentHTML('beforeend', iconHTML);
   wrap.appendChild(bubble);
@@ -1934,7 +2045,10 @@ const REDUCE_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // 讓 AI 的回覆逐字淡入（類似 ChatGPT / Gemini 的串流效果），結尾帶一顆跳動游標；
 // 回傳 Promise，動畫跑完才 resolve。減少動態效果時直接整段顯示
-function typeIntoBubble(logId, bubble, text, speed = 34) {
+// speed：省略＝一般串流速度；數字＝每字毫秒；物件 { msPerChar, endAt }＝跟著聲音走（endAt 一出現就調整速度，讓最後一個字和聲音同時結束）
+function typeIntoBubble(logId, bubble, text, speed) {
+  speed = speed || 34;
+  const synced = typeof speed === 'object' || speed > 34;
   return new Promise(resolve => {
     const log = document.getElementById(logId);
     bubble.style.whiteSpace = 'pre-wrap';   // 保留 AI 回覆裡的換行
@@ -1945,9 +2059,16 @@ function typeIntoBubble(logId, bubble, text, speed = 34) {
     bubble.textContent = '';
     bubble.appendChild(caret);
     let i = 0;
-    const timer = setInterval(() => {
-      // 一次補 1～2 個字，節奏比較像真的串流
-      const n = Math.min(chars.length - i, Math.random() < 0.2 ? 2 : 1);
+    const delay = () => {
+      if (typeof speed !== 'object') return speed;
+      if (speed.endAt) return Math.max(20, Math.min(600, (speed.endAt - performance.now()) / Math.max(1, chars.length - i)));
+      return speed.msPerChar;
+    };
+    const tick = () => {
+      // 一次補 1～2 個字，節奏比較像真的串流；跟聲音同步時固定一次一字
+      // 聲音被打斷（使用者又按麥克風）：剩下的字一次補完，不讓聊天卡在「回覆中」
+      const n = (typeof speed === 'object' && speed.stop) ? chars.length - i
+        : Math.min(chars.length - i, synced ? 1 : (Math.random() < 0.2 ? 2 : 1));
       const span = document.createElement('span');
       span.className = 'stream-ch';
       span.textContent = chars.slice(i, i + n).join('');
@@ -1955,11 +2076,13 @@ function typeIntoBubble(logId, bubble, text, speed = 34) {
       i += n;
       log.scrollTop = log.scrollHeight;
       if (i >= chars.length) {
-        clearInterval(timer);
         // 最後幾個字淡入完再收掉游標，並把一堆 span 合回純文字
         setTimeout(() => { bubble.textContent = text; resolve(); }, 380);
+        return;
       }
-    }, speed);
+      setTimeout(tick, delay());
+    };
+    setTimeout(tick, delay());
   });
 }
 
@@ -2012,6 +2135,7 @@ function flySend(inputId) {
 }
 // 等待回答期間不重複送出
 const chatBusy = {};
+Object.defineProperty(chatBusy, 'product', { get: () => !!productBusy[currentTeaId], set: () => {} });
 
 // 記下訊息的起飛點：一律是輸入列右下角（送出鍵的右下角），在清空輸入列前量好
 function msgSource(input) {
@@ -2043,6 +2167,7 @@ function flyGhost(log, bubble, text, src) {
 
   const ghost = document.createElement('div');
   ghost.setAttribute('aria-hidden', 'true');
+  ghost.dataset.flyGhost = '1';
   ghost.className = 'bg-tea-gold text-tea-dark rounded-2xl rounded-tr-sm font-medium';
   ghost.style.cssText = `position:absolute; left:${b.left + window.scrollX}px; top:${b.top + window.scrollY}px;
     width:${b.width}px; height:${b.height}px; box-sizing:border-box; padding:${cs.padding};
@@ -2077,13 +2202,57 @@ function toGeminiContents(history) {
   return history.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] }));
 }
 
+// 簡轉繁保險（全站只能出現繁體字）：語音辨識有時回傳簡體字，AI 也可能跟著用簡體回答，
+// 所以辨識結果、AI 回覆一律再轉一次。字表取自 OpenCC（Apache-2.0）STCharacters＋TWVariants，
+// 只收「臺灣不會用到的簡體字形」；后、里、干、几、余、云、范、采、准、游等臺灣也在用的字不整字轉，
+// 改由下面的詞語規則依上下文修正
+const S2T_SRC = "万与专业丛东丝丢两严丧个丰临为丽举么义乌乐乔习乡书买乱争于亏亘亚产亩亲亵亸亿仅从仑仓仪们价众优会伛伞伟传伡伣伤伥伦伧伪伫体佥侠侣侥侦侧侨侩侪侬侭俣俦俨俩俪俫俭债倾偬偻偾偿傤傥傧储傩儿兑兖党兰关兴兹养兽冁内冈册写军农冯冲决况冻净凄凉减凑凛凤凫凭凯击凿刍刘则刚创删别刬刭刹刽刿剀剂剐剑剥剧劝办务劢动励劲劳势勋勚匀匦匮区医华协单卖卢卤卧卫却卺厂厅历厉压厌厍厐厕厢厣厦厨厩厮县叁参叆叇双发变叙叠叶号叹叽吓吕吗吨听启吴呐呒呓呕呖呗员呙呛呜咏咙咛咝咤咨咸响哑哒哓哔哕哗哙哜哝哟唛唝唠唡唢唤啧啬啭啮啯啰啴啸喷喽喾嗫嗳嘘嘤嘱噜嚣团园囱围囵国图圆圣圹场坏块坚坛坜坝坞坟坠垄垅垆垒垦垩垫垭垯垱垲垴埘埙埚堑堕塆墙壮声壳壶壸处备复够头夸夹夺奁奂奋奖奥妆妇妈妩妪妫姗姹娄娅娆娇娈娱娲娴婳婴婵婶媪媭嫒嫔嫱嬷孙学孪宁宝实宠审宪宫宽宾寝对寻导寿将尔尘尝尧尴尸尽层屃屉届属屡屦屿岁岂岖岗岘岚岛岭岽岿峃峄峡峣峤峥峦崂崃崄崭嵘嵚嵝巅巩巯币帅师帏帐帘帜带帧帮帱帻帼幂并广庄庆庐庑库应庙庞废庼廪开异弃弑张弥弪弯弹强归当录彟彦彨彻径徕忆忏忧忾怀态怂怃怄怅怆怜总怼怿恋恒恳恶恸恹恺恻恼恽悦悫悬悭悮悯惊惧惨惩惫惬惭惮惯愠愤愦愿慑慭懑懒懔戆戋戏戗战戬戯户扑执扩扪扫扬扰抚抛抟抠抡抢护报担拟拢拣拥拦拧拨择挚挛挜挝挞挟挠挡挢挣挤挥挦捝捞损捡换捣据掳掴掷掸掺掼揽揾揿搀搁搂搄搅携摄摅摆摇摈摊撄撑撵撷撸撺擞攒敌敚敛敩数斋斓斩断无旧时旷旸昙昵昼昽显晋晒晓晔晕晖暂暧术机杀杂权杠条来杨杩极构枞枢枣枥枧枨枪枫枭柜柠柽栀栅标栈栉栊栋栌栎栏树样栾桠桡桢档桤桥桦桧桨桩桪梦梼梾梿检棁棂椁椝椟椠椢椤椫椭椮楼榄榅榇榈榉榝槚槛槟槠横樯樱橥橱橹橼檩欢欤欧歼殁殇残殒殓殚殡殴毁毂毕毙毡毵氇气氢氩氲汇汉汤汹沟没沣沤沥沦沧沨沩沪泞泪泶泷泸泺泻泼泽泾洁洒洼浃浅浆浇浈浉浊测浍济浏浐浑浒浓浔浕涌涚涛涝涞涟涠涡涢涣涤润涧涨涩淀渊渌渍渎渐渑渔渖渗温湾湿溁溃溅溆溇滗滚滞滟滠满滢滤滥滦滨滩滪潆潇潋潍潜潴澛澜濑濒灏灭灯灵灾灿炀炉炖炜炝点炼炽烁烂烃烛烟烦烧烨烩烫烬热焕焖焘煴爱爷牍牦牵牺犊状犷犸犹狈狝狞独狭狮狯狰狱狲猃猎猕猡猪猫猬献獭玑玙玚玛玮环现玱玺珐珑珰珲琎琏琐琼瑶瑷瑸璎瓒瓮瓯电画畅畴疖疗疟疠疡疬疭疮疯疱疴痈痉痒痖痨痪痫瘅瘆瘗瘘瘪瘫瘾瘿癞癣癫皑皱皲盏盐监盖盗盘眍眦眬睁睐睑瞆瞒瞩矫矶矾矿砀码砖砗砚砜砺砻砾础硁硕硖硗硙硚确硵碍碛碜碱礼祃祎祢祯祷祸禀禄禅离秃秆种积称秽秾稆税稣稳穑穞穷窃窍窎窑窜窝窥窦窭竖竞笃笋笔笕笺笼笾筑筚筛筜筝筹筼签筿简箓箦箧箨箩箪箫篑篓篮篯篱簖籁籴类籼粜粝粤粪粮糁糇糍紧絷緼縆纟纠纡红纣纤纥约级纨纩纪纫纬纭纮纯纰纱纲纳纴纵纶纷纸纹纺纻纼纽纾线绀绁绂练组绅细织终绉绊绋绌绍绎经绐绑绒结绔绕绖绗绘给绚绛络绝绞统绠绡绢绣绤绥绦继绨绩绪绫绬续绮绯绰绱绲绳维绵绶绷绸绹绺绻综绽绾绿缀缁缂缃缄缅缆缇缈缉缊缋缌缍缎缏缐缑缒缓缔缕编缗缘缙缚缛缜缝缞缟缠缡缢缣缤缥缦缧缨缩缪缫缬缭缮缯缰缱缲缳缴缵罂网罗罚罢罴羁羟羡翘翙翚耢耧耸耻聂聋职聍联聩聪肃肠肤肮肾肿胀胁胆胜胧胨胪胫胶脉脍脏脐脑脓脔脚脱脶脸腊腌腘腭腻腼腽腾膑膻臜舆舣舰舱舻艰艳艺节芈芗芜芦苁苇苈苋苌苍苎苏苹茎茏茑茔茕茧荆荐荙荚荛荜荝荞荟荠荡荣荤荥荦荧荨荩荪荫荬荭荮药莅莱莲莳莴莶获莸莹莺莼萚萝萤营萦萧萨葱蒀蒇蒉蒋蒌蒏蓝蓟蓠蓣蓥蓦蔂蔷蔹蔺蔼蕰蕲蕴薮藓藴蘖虏虑虚虫虬虮虱虽虾虿蚀蚁蚂蚃蚕蚝蚬蛊蛎蛏蛮蛰蛱蛲蛳蛴蜕蜗蜡蝇蝈蝉蝎蝼蝾螀螨蟏衅衔补衬衮袄袅袆袜袭袯装裆裈裢裣裤裥褛褴襕见观觃规觅视觇览觉觊觋觌觍觎觏觐觑觞触觯訚詟誉誊讠计订讣认讥讦讧讨让讪讫讬训议讯记讱讲讳讴讵讶讷许讹论讻讼讽设访诀证诂诃评诅识诇诈诉诊诋诌词诎诏诐译诒诓诔试诖诗诘诙诚诛诜话诞诟诠诡询诣诤该详诧诨诩诪诫诬语诮误诰诱诲诳说诵诶请诸诹诺读诼诽课诿谀谁谂调谄谅谆谇谈谉谊谋谌谍谎谏谐谑谒谓谔谕谖谗谘谙谚谛谜谝谞谟谠谡谢谣谤谥谦谧谨谩谪谫谬谭谮谯谰谱谲谳谴谵谶豮贝贞负贠贡财责贤败账货质贩贪贫贬购贮贯贰贱贲贳贴贵贶贷贸费贺贻贼贽贾贿赀赁赂赃资赅赆赇赈赉赊赋赌赍赎赏赐赑赒赓赔赕赖赗赘赙赚赛赜赝赞赟赠赡赢赣赪赵赶趋趱趸跃跄跞践跶跷跸跹跻踌踪踬踯蹑蹒蹰蹿躏躜躯輼车轧轨轩轪轫转轭轮软轰轱轲轳轴轵轶轷轸轹轺轻轼载轾轿辀辁辂较辄辅辆辇辈辉辊辋辌辍辎辏辐辑辒输辔辕辖辗辘辙辚辞辩辫边辽达迁过迈运还这进远违连迟迩迳迹适选逊递逦逻遗遥邓邝邬邮邹邺邻郏郐郑郓郦郧郸酂酝酦酱酽酾酿醖释鉴銮錾钅钆钇针钉钊钋钌钍钎钏钐钑钒钓钔钕钖钗钘钙钚钛钜钝钞钟钠钡钢钣钤钥钦钧钨钩钪钫钬钭钮钯钰钱钲钳钴钵钶钷钸钹钺钻钼钽钾钿铀铁铂铃铄铅铆铇铈铉铊铋铌铍铎铏铐铑铒铓铔铕铖铗铘铙铚铛铜铝铞铟铠铡铢铣铤铥铦铧铨铩铪铫铬铭铮铯铰铱铲铳铴铵银铷铸铹铺铻铼铽链铿销锁锂锃锄锅锆锇锈锉锊锋锌锍锎锏锐锑锒锓锔锕锖锗锘错锚锛锜锝锞锟锠锡锢锣锤锥锦锧锨锩锪锫锬锭键锯锰锱锲锳锴锵锶锷锸锹锺锻锼锽锾锿镀镁镂镃镄镅镆镇镈镉镊镋镌镍镎镏镐镑镒镓镔镕镖镗镘镙镚镛镜镝镞镟镠镡镢镣镤镥镦镧镨镩镪镫镬镭镮镯镰镱镲镳镴镵镶长门闩闪闫闬闭问闯闰闱闲闳间闵闶闷闸闹闺闻闼闽闾闿阀阁阂阃阄阅阆阇阈阉阊阋阌阍阎阏阐阑阒阓阔阕阖阗阘阙阚阛队阳阴阵阶际陆陇陈陉陕陦陧陨险随隐隶隽难雏雠雳雾霁霡霭靓靔静靥鞑鞒鞯鞲韦韧韨韩韪韫韬韵页顶顷顸项顺须顼顽顾顿颀颁颂颃预颅领颇颈颉颊颋颌颍颎颏颐频颒颓颔颕颖颗题颙颚颛颜额颞颟颠颡颢颣颤颥颦颧风飏飐飑飒飓飔飕飖飗飘飙飚飞飨餍饣饤饥饦饧饨饩饪饫饬饭饮饯饰饱饲饳饴饵饶饷饸饹饺饻饼饽饾饿馀馁馂馃馄馅馆馇馈馉馊馋馌馍馎馏馐馑馒馓馔馕马驭驮驯驰驱驲驳驴驵驶驷驸驹驺驻驼驽驾驿骀骁骂骃骄骅骆骇骈骉骊骋验骍骎骏骐骑骒骓骔骕骖骗骘骙骚骛骜骝骞骟骠骡骢骣骤骥骦骧髅髋髌鬓鬶魇魉鱼鱽鱾鱿鲀鲁鲂鲄鲅鲆鲇鲈鲉鲊鲋鲌鲍鲎鲏鲐鲑鲒鲓鲔鲕鲖鲗鲘鲙鲚鲛鲜鲝鲞鲟鲠鲡鲢鲣鲤鲥鲦鲧鲨鲩鲪鲫鲬鲭鲮鲯鲰鲱鲲鲳鲴鲵鲶鲷鲸鲹鲺鲻鲼鲽鲾鲿鳀鳁鳂鳃鳄鳅鳆鳇鳈鳉鳊鳋鳌鳍鳎鳏鳐鳑鳒鳓鳔鳕鳖鳗鳘鳙鳛鳜鳝鳞鳟鳠鳡鳢鳣鸟鸠鸡鸢鸣鸤鸥鸦鸧鸨鸩鸪鸫鸬鸭鸮鸯鸰鸱鸲鸳鸴鸵鸶鸷鸸鸹鸺鸻鸼鸽鸾鸿鹀鹁鹂鹃鹄鹅鹆鹇鹈鹉鹊鹋鹌鹍鹎鹏鹐鹑鹒鹓鹔鹕鹖鹗鹘鹙鹚鹛鹜鹝鹞鹟鹠鹡鹢鹣鹤鹥鹦鹧鹨鹩鹪鹫鹬鹭鹯鹰鹱鹲鹳鹴鹾麦麸麹麺麽黄黉黡黩黪黾鼋鼌鼍鼹齐齑齿龀龁龂龃龄龅龆龇龈龉龊龋龌龙龚龛龟鿒鿔着";
+const S2T_DST = "萬與專業叢東絲丟兩嚴喪個豐臨為麗舉麼義烏樂喬習鄉書買亂爭於虧亙亞產畝親褻嚲億僅從侖倉儀們價眾優會傴傘偉傳俥俔傷倀倫傖偽佇體僉俠侶僥偵側僑儈儕儂儘俁儔儼倆儷倈儉債傾傯僂僨償儎儻儐儲儺兒兌兗黨蘭關興茲養獸囅內岡冊寫軍農馮衝決況凍淨悽涼減湊凜鳳鳧憑凱擊鑿芻劉則剛創刪別剗剄剎劊劌剴劑剮劍剝劇勸辦務勱動勵勁勞勢勳勩勻匭匱區醫華協單賣盧滷臥衛卻巹廠廳歷厲壓厭厙龎廁廂厴廈廚廄廝縣叄參靉靆雙發變敘疊葉號嘆嘰嚇呂嗎噸聽啟吳吶嘸囈嘔嚦唄員咼嗆嗚詠嚨嚀噝吒諮鹹響啞噠嘵嗶噦譁噲嚌噥喲嘜嗊嘮啢嗩喚嘖嗇囀齧嘓囉嘽嘯噴嘍嚳囁噯噓嚶囑嚕囂團園囪圍圇國圖圓聖壙場壞塊堅壇壢壩塢墳墜壟壠壚壘墾堊墊埡墶壋塏堖塒壎堝塹墮壪牆壯聲殼壺壼處備復夠頭誇夾奪奩奐奮獎奧妝婦媽嫵嫗媯姍奼婁婭嬈嬌孌娛媧嫻嫿嬰嬋嬸媼嬃嬡嬪嬙嬤孫學孿寧寶實寵審憲宮寬賓寢對尋導壽將爾塵嘗堯尷屍盡層屓屜屆屬屢屨嶼歲豈嶇崗峴嵐島嶺崬巋嶨嶧峽嶢嶠崢巒嶗崍嶮嶄嶸嶔嶁巔鞏巰幣帥師幃帳簾幟帶幀幫幬幘幗冪並廣莊慶廬廡庫應廟龐廢廎廩開異棄弒張彌弳彎彈強歸當錄彠彥彲徹徑徠憶懺憂愾懷態慫憮慪悵愴憐總懟懌戀恆懇惡慟懨愷惻惱惲悅愨懸慳悞憫驚懼慘懲憊愜慚憚慣慍憤憒願懾憖懣懶懍戇戔戲戧戰戩戱戶撲執擴捫掃揚擾撫拋摶摳掄搶護報擔擬攏揀擁攔擰撥擇摯攣掗撾撻挾撓擋撟掙擠揮撏挩撈損撿換搗據擄摑擲撣摻摜攬搵撳攙擱摟揯攪攜攝攄擺搖擯攤攖撐攆擷擼攛擻攢敵敓斂斆數齋斕斬斷無舊時曠暘曇暱晝曨顯晉曬曉曄暈暉暫曖術機殺雜權槓條來楊榪極構樅樞棗櫪梘棖槍楓梟櫃檸檉梔柵標棧櫛櫳棟櫨櫟欄樹樣欒椏橈楨檔榿橋樺檜槳樁樳夢檮棶槤檢梲欞槨槼櫝槧槶欏樿橢槮樓欖榲櫬櫚櫸樧檟檻檳櫧橫檣櫻櫫櫥櫓櫞檁歡歟歐殲歿殤殘殞殮殫殯毆毀轂畢斃氈毿氌氣氫氬氳匯漢湯洶溝沒灃漚瀝淪滄渢溈滬濘淚澩瀧瀘濼瀉潑澤涇潔灑窪浹淺漿澆湞溮濁測澮濟瀏滻渾滸濃潯濜湧涗濤澇淶漣潿渦溳渙滌潤澗漲澀澱淵淥漬瀆漸澠漁瀋滲溫灣溼濚潰濺漵漊潷滾滯灩灄滿瀅濾濫灤濱灘澦瀠瀟瀲濰潛瀦瀂瀾瀨瀕灝滅燈靈災燦煬爐燉煒熗點煉熾爍爛烴燭煙煩燒燁燴燙燼熱煥燜燾熅愛爺牘犛牽犧犢狀獷獁猶狽獮獰獨狹獅獪猙獄猻獫獵獼玀豬貓蝟獻獺璣璵瑒瑪瑋環現瑲璽琺瓏璫琿璡璉瑣瓊瑤璦璸瓔瓚甕甌電畫暢疇癤療瘧癘瘍癧瘲瘡瘋皰痾癰痙癢瘂癆瘓癇癉瘮瘞瘻癟癱癮癭癩癬癲皚皺皸盞鹽監蓋盜盤瞘眥矓睜睞瞼瞶瞞矚矯磯礬礦碭碼磚硨硯碸礪礱礫礎硜碩硤磽磑礄確磠礙磧磣鹼禮禡禕禰禎禱禍稟祿禪離禿稈種積稱穢穠穭稅穌穩穡穭窮竊竅窵窯竄窩窺竇窶豎競篤筍筆筧箋籠籩築篳篩簹箏籌篔籤篠簡籙簀篋籜籮簞簫簣簍籃籛籬籪籟糴類秈糶糲粵糞糧糝餱餈緊縶縕緪糹糾紆紅紂纖紇約級紈纊紀紉緯紜紘純紕紗綱納紝縱綸紛紙紋紡紵紖紐紓線紺紲紱練組紳細織終縐絆紼絀紹繹經紿綁絨結絝繞絰絎繪給絢絳絡絕絞統綆綃絹繡綌綏絛繼綈績緒綾緓續綺緋綽鞝緄繩維綿綬繃綢綯綹綣綜綻綰綠綴緇緙緗緘緬纜緹緲緝縕繢緦綞緞緶線緱縋緩締縷編緡緣縉縛縟縝縫縗縞纏縭縊縑繽縹縵縲纓縮繆繅纈繚繕繒韁繾繰繯繳纘罌網羅罰罷羆羈羥羨翹翽翬耮耬聳恥聶聾職聹聯聵聰肅腸膚骯腎腫脹脅膽勝朧腖臚脛膠脈膾髒臍腦膿臠腳脫腡臉臘醃膕顎膩靦膃騰臏羶臢輿艤艦艙艫艱豔藝節羋薌蕪蘆蓯葦藶莧萇蒼苧蘇蘋莖蘢蔦塋煢繭荊薦薘莢蕘蓽萴蕎薈薺蕩榮葷滎犖熒蕁藎蓀蔭蕒葒葤藥蒞萊蓮蒔萵薟獲蕕瑩鶯蓴蘀蘿螢營縈蕭薩蔥蒕蕆蕢蔣蔞醟藍薊蘺蕷鎣驀虆薔蘞藺藹薀蘄蘊藪蘚蘊櫱虜慮虛蟲虯蟣蝨雖蝦蠆蝕蟻螞蠁蠶蠔蜆蠱蠣蟶蠻蟄蛺蟯螄蠐蛻蝸蠟蠅蟈蟬蠍螻蠑螿蟎蠨釁銜補襯袞襖嫋褘襪襲襏裝襠褌褳襝褲襉褸襤襴見觀覎規覓視覘覽覺覬覡覿覥覦覯覲覷觴觸觶誾讋譽謄訁計訂訃認譏訐訌討讓訕訖託訓議訊記訒講諱謳詎訝訥許訛論訩訟諷設訪訣證詁訶評詛識詗詐訴診詆謅詞詘詔詖譯詒誆誄試詿詩詰詼誠誅詵話誕詬詮詭詢詣諍該詳詫諢詡譸誡誣語誚誤誥誘誨誑說誦誒請諸諏諾讀諑誹課諉諛誰諗調諂諒諄誶談讅誼謀諶諜謊諫諧謔謁謂諤諭諼讒諮諳諺諦謎諞諝謨讜謖謝謠謗諡謙謐謹謾謫譾謬譚譖譙讕譜譎讞譴譫讖豶貝貞負貟貢財責賢敗賬貨質販貪貧貶購貯貫貳賤賁貰貼貴貺貸貿費賀貽賊贄賈賄貲賃賂贓資賅贐賕賑賚賒賦賭齎贖賞賜贔賙賡賠賧賴賵贅賻賺賽賾贗贊贇贈贍贏贛赬趙趕趨趲躉躍蹌躒踐躂蹺蹕躚躋躊蹤躓躑躡蹣躕躥躪躦軀轀車軋軌軒軑軔轉軛輪軟轟軲軻轤軸軹軼軤軫轢軺輕軾載輊轎輈輇輅較輒輔輛輦輩輝輥輞輬輟輜輳輻輯轀輸轡轅轄輾轆轍轔辭辯辮邊遼達遷過邁運還這進遠違連遲邇逕跡適選遜遞邐邏遺遙鄧鄺鄔郵鄒鄴鄰郟鄶鄭鄆酈鄖鄲酇醞醱醬釅釃釀醞釋鑑鑾鏨釒釓釔針釘釗釙釕釷釺釧釤鈒釩釣鍆釹鍚釵鈃鈣鈈鈦鉅鈍鈔鍾鈉鋇鋼鈑鈐鑰欽鈞鎢鉤鈧鈁鈥鈄鈕鈀鈺錢鉦鉗鈷缽鈳鉕鈽鈸鉞鑽鉬鉭鉀鈿鈾鐵鉑鈴鑠鉛鉚鉋鈰鉉鉈鉍鈮鈹鐸鉶銬銠鉺鋩錏銪鋮鋏鋣鐃銍鐺銅鋁銱銦鎧鍘銖銑鋌銩銛鏵銓鎩鉿銚鉻銘錚銫鉸銥鏟銃鐋銨銀銣鑄鐒鋪鋙錸鋱鏈鏗銷鎖鋰鋥鋤鍋鋯鋨鏽銼鋝鋒鋅鋶鐦鐧銳銻鋃鋟鋦錒錆鍺鍩錯錨錛錡鍀錁錕錩錫錮鑼錘錐錦鑕鍁錈鍃錇錟錠鍵鋸錳錙鍥鍈鍇鏘鍶鍔鍤鍬鍾鍛鎪鍠鍰鎄鍍鎂鏤鎡鐨鎇鏌鎮鎛鎘鑷钂鐫鎳鎿鎦鎬鎊鎰鎵鑌鎔鏢鏜鏝鏍鏰鏞鏡鏑鏃鏇鏐鐔钁鐐鏷鑥鐓鑭鐠鑹鏹鐙鑊鐳鐶鐲鐮鐿鑔鑣鑞鑱鑲長門閂閃閆閈閉問闖閏闈閒閎間閔閌悶閘鬧閨聞闥閩閭闓閥閣閡閫鬮閱閬闍閾閹閶鬩閿閽閻閼闡闌闃闠闊闋闔闐闒闕闞闤隊陽陰陣階際陸隴陳陘陝隯隉隕險隨隱隸雋難雛讎靂霧霽霢靄靚靝靜靨韃鞽韉韝韋韌韍韓韙韞韜韻頁頂頃頇項順須頊頑顧頓頎頒頌頏預顱領頗頸頡頰頲頜潁熲頦頤頻頮頹頷頴穎顆題顒顎顓顏額顳顢顛顙顥纇顫顬顰顴風颺颭颮颯颶颸颼颻飀飄飆飈飛饗饜飠飣飢飥餳飩餼飪飫飭飯飲餞飾飽飼飿飴餌饒餉餄餎餃餏餅餑餖餓餘餒餕餜餛餡館餷饋餶餿饞饁饃餺餾饈饉饅饊饌饢馬馭馱馴馳驅馹駁驢駔駛駟駙駒騶駐駝駑駕驛駘驍罵駰驕驊駱駭駢驫驪騁驗騂駸駿騏騎騍騅騌驌驂騙騭騤騷騖驁騮騫騸驃騾驄驏驟驥驦驤髏髖髕鬢鬹魘魎魚魛魢魷魨魯魴魺鮁鮃鯰鱸鮋鮓鮒鮊鮑鱟鮍鮐鮭鮚鮳鮪鮞鮦鰂鮜鱠鱭鮫鮮鮺鯗鱘鯁鱺鰱鰹鯉鰣鰷鯀鯊鯇鮶鯽鯒鯖鯪鯕鯫鯡鯤鯧鯝鯢鯰鯛鯨鰺鯴鯔鱝鰈鰏鱨鯷鰮鰃鰓鱷鰍鰒鰉鰁鱂鯿鰠鰲鰭鰨鰥鰩鰟鰜鰳鰾鱈鱉鰻鰵鱅鰼鱖鱔鱗鱒鱯鱤鱧鱣鳥鳩雞鳶鳴鳲鷗鴉鶬鴇鴆鴣鶇鸕鴨鴞鴦鴒鴟鴝鴛鷽鴕鷥鷙鴯鴰鵂鴴鵃鴿鸞鴻鵐鵓鸝鵑鵠鵝鵒鷳鵜鵡鵲鶓鵪鵾鵯鵬鵮鶉鶊鵷鷫鶘鶡鶚鶻鶖鷀鶥鶩鷊鷂鶲鶹鶺鷁鶼鶴鷖鸚鷓鷚鷯鷦鷲鷸鷺鸇鷹鸌鸏鸛鸘鹺麥麩麴麵麼黃黌黶黷黲黽黿鼂鼉鼴齊齏齒齔齕齗齟齡齙齠齜齦齬齪齲齷龍龔龕龜鿓鎶著";
+const S2T_MAP = new Map([...S2T_SRC].map((c, i) => [c, [...S2T_DST][i]]));
+const S2T_RULES = [
+  [/(^|[^皇太王天影歌])后(?![羿土妃])/g, '$1後'],
+  // 里：臺灣只在距離單位、鄰里這類詞用「里」，其他（杯子里、冰箱里…）一律是「裡」
+  [/(公|英|海|鄰|故|千|萬|鄉|華)?里(長|程|民|拉)?/g, (m, a, b) => (a || b) ? m : '裡'],
+  [/鍾(?=[點頭錶表聲])/g, '鐘'], [/鐘表/g, '鐘錶'], [/([分時秒幾點])鍾/g, '$1鐘'],
+  [/姜/g, '薑'], [/薑(?=(先生|小姐|太太|老師|太公|子牙))/g, '姜'],
+  [/干([燥淨杯貨果花爽澀])/g, '乾$1'], [/([餅曬烘風口])干/g, '$1乾'], [/干嘛/g, '幹嘛'],
+  [/几(?=[個乎次天分種杯點年位款口回句])/g, '幾'], [/([好沒這])几/g, '$1幾'],
+  [/([其多剩])余/g, '$1餘'], [/余(?=[韻味溫香甘])/g, '餘'],
+  [/云(?=[霧南朵彩端])/g, '雲'], [/白云/g, '白雲'],
+  [/范(?=[圍例本疇])/g, '範'], [/([示規典模防])范/g, '$1範'],
+  [/采(?=[摘茶收集用購])/g, '採'],
+  [/准(?=[確備時則])/g, '準'], [/([標水精])准/g, '$1準'],
+  [/([特象])征/g, '$1徵'],
+  [/([旅郊導])游/g, '$1遊'], [/游(?=[客戲覽玩])/g, '遊'],
+  [/衝(?=[泡茶調洗煮])/g, '沖'],
+  [/([頭理白黑短長])發/g, '$1髮'], [/發(?=[型絲質])/g, '髮'],
+  [/([重繁])復/g, '$1複'], [/復(?=[雜習合方製印])/g, '複'],
+  [/面(?=[條包粉食線])/g, '麵'],
+  [/([關聯])系/g, (m, a) => a === '關' ? '關係' : '聯繫'],
+  [/([放輕寬蓬])松/g, '$1鬆'], [/松(?=[弛軟散])/g, '鬆'],
+  [/制(?=[作茶成程品造])/g, '製'], [/([烘炒精特自調研焙泡監])制/g, '$1製'],
+  [/盡量/g, '儘量'], [/日歷/g, '日曆'], [/收獲/g, '收穫'], [/([心肝內])髒/g, '$1臟']
+];
+function toTrad(t) {
+  // 冲：簡體一字兼「沖」「衝」，泡茶情境幾乎都是「沖」；衝突、衝動這類詞才是「衝」（要在逐字轉換前判斷）
+  let out = String(t).replace(/冲(?=[突动動击擊刺浪劲勁锋鋒破撞])/g, '衝').replace(/冲/g, '沖');
+  out = [...out].map(ch => S2T_MAP.get(ch) || ch).join('');
+  for (const [re, to] of S2T_RULES) out = out.replace(re, to);
+  return out;
+}
+
 // AI 偶爾還是會自己加 emoji，前端再濾一次，讓全站只出現線條圖示
 function noEmoji(t) {
-  return String(t).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '').replace(/[ \t]{2,}/g, ' ');
+  return String(t).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}\u{3030}\u{303D}]/gu, '').replace(/[ \t]{2,}/g, ' ');
 }
 async function callGemini(systemPrompt, contents) {
+  // Worker 沒回應時最多等 25 秒，不讓聊天一直卡在「思考中」
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25000);
+  try {
   const res = await fetch(WORKER_URL, {
     method: "POST",
+    signal: ctrl.signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: GEMINI_MODEL,
@@ -2097,56 +2266,637 @@ async function callGemini(systemPrompt, contents) {
     throw new Error(`API 錯誤 (${res.status}): ${errText}`);
   }
   const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "（沒有收到回覆，請再試一次）";
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  if (!text) throw new Error('empty reply');
+  return toTrad(text);
+  } finally { clearTimeout(timer); }
 }
+// 給訪客看的錯誤訊息一律用固定的友善句子，技術細節只記在 console
+const CHAT_ERR = '茶伴暫時連不上線，請稍後再試一次';
+// AI 回覆整理：拿掉 Markdown 粗體／標題符號（泡泡是純文字，不然會直接看到 ** 和 #）
+function plainReply(t) { return String(t).replace(/\*\*|__|^#+\s*/gm, '').replace(/^\s*[*-]\s+/gm, ''); }
+// 拆出 AI 附在最後的建議：接受【建議】、建議：，分隔符號接受半形與全形直線
+function splitSuggest(raw) {
+  const m = /【?建議】?\s*[:：]?\s*(?=[^\n]*[|｜])/.exec(raw);
+  const idx = raw.indexOf('【建議】') >= 0 ? raw.indexOf('【建議】') : (m ? m.index : -1);
+  if (idx < 0) return [raw.trim(), []];
+  const sug = raw.slice(idx).replace(/^【?建議】?\s*[:：]?/, '');
+  return [raw.slice(0, idx).trim(), sug.split(/[|｜]/).map(x => x.trim()).filter(Boolean).slice(0, 3)];
+}
+
+/* ---------------- 語音對話（AI 茶伴＋茶款頁問答共用） ----------------
+   用瀏覽器內建的 Web Speech API，不經過 Worker：
+   - 按麥克風說話 → SpeechRecognition（zh-TW）把語音轉成文字填進輸入列，說完自動送出
+   - 用語音問的那一題，AI 回覆會用 speechSynthesis 唸出來（打字問的照舊不出聲）
+   瀏覽器不支援語音辨識（LINE / Facebook / IG 內建瀏覽器、部分 iOS 環境）就不顯示麥克風，文字聊天照常 */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+const IN_APP_BROWSER = /\bLine\/|FBAN|FBAV|Instagram/i.test(navigator.userAgent);
+const CAN_VOICE = !!SpeechRec && !IN_APP_BROWSER;
+const CAN_SPEAK = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+if (CAN_VOICE) document.documentElement.classList.add('can-voice');
+
+const VOICE_CHAT = {
+  companion: { input: 'companion-input', send: () => sendCompanion() },
+  product:   { input: 'product-chat-input', send: () => askProduct() }
+};
+const voiceTurn = {};          // 這一題是不是用語音問的（是的話回覆要唸出來）
+let voiceRec = null;
+
+// 挑聲音：同樣是中文，各家瀏覽器內建的聲音品質差很多，依「自然程度」打分數挑最好的一個
+// - Edge 的 Microsoft 線上「Natural」聲音（曉臻 HsiaoChen、曉雨 HsiaoYu）最像真人
+// - iOS / Mac 有下載「增強／高品質」版的美佳（Meijia）其次
+// - Chrome 的「Google 國語（臺灣）」、Android 的 Google 語音也算自然
+// - 偏好溫柔的女聲，避開機械感重的舊版桌面聲音（Zhiwei、Hanhan 等）
+let ttsVoice = null;
+function voiceScore(v) {
+  const n = v.name, lang = v.lang.replace('_', '-');
+  let sc = 0;
+  if (/^zh-TW/i.test(lang)) sc += 100;
+  else if (/^(zh-HK|zh-Hant|cmn-Hant)/i.test(lang)) sc += 40;
+  else if (/^(zh|cmn)/i.test(lang)) sc += 30;
+  else return -1;
+  if (/Natural|Online|Neural/i.test(n)) sc += 60;
+  if (/Enhanced|Premium|增強|高品質|優化/i.test(n)) sc += 50;
+  if (/HsiaoChen|HsiaoYu|曉臻|曉雨|Meijia|美佳|Google|Ya-?Ling|Tingting|婷婷/i.test(n)) sc += 25;
+  if (/Zhiwei|YunJhe|Hanhan|Danny|male|男/i.test(n)) sc -= 40;
+  if (!v.localService) sc += 5;
+  return sc;
+}
+function pickVoice() {
+  if (!CAN_SPEAK) return;
+  const vs = speechSynthesis.getVoices().filter(v => voiceScore(v) >= 0);
+  vs.sort((x, y) => voiceScore(y) - voiceScore(x));
+  ttsVoice = vs[0] || null;
+}
+if (CAN_SPEAK) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
+// 朗讀前整理文字：拿掉唸出來很奇怪的符號，讓斷句停頓自然
+function ttsClean(text) {
+  return String(text)
+    .replace(/[『』「」《》〈〉【】"“”]/g, '')
+    .replace(/[／/]/g, '或')
+    .replace(/[～~]/g, '到')
+    .replace(/[（(][^）)]*[）)]/g, '')      // 括號補充說明不唸
+    .replace(/[•·・]/g, '，')
+    .replace(/\s*\n+\s*/g, '。')
+    .replace(/([。！？，、；])\1+/g, '$1')
+    .trim();
+}
+// 依句子切開一句一句唸：句與句之間有自然停頓，也避開 Chrome 長句唸到一半被截斷的問題
+function ttsSentences(text) {
+  const parts = ttsClean(text).match(/[^。！？；!?;]+[。！？；!?;]?/g) || [];
+  // 太短的句子併到前一句，避免一直停頓
+  return parts.reduce((out, p) => {
+    p = p.trim(); if (!p) return out;
+    if (out.length && (p.length < 6 || out[out.length - 1].length < 6)) out[out.length - 1] += p;
+    else out.push(p);
+    return out;
+  }, []);
+}
+
+/* ----- Gemini 語音朗讀（比手機內建聲音自然）-----
+   走 Worker 呼叫 Gemini Interactions API 的串流 TTS（Worker 看到 interactions: true 就轉到 /v1beta/interactions 並原樣串流回來）。
+   聲音一段一段到（24kHz 16-bit PCM），收到第一段就開始播，不用等整段產生完（整段要等 8 秒以上）。
+   免費額度：每分鐘 10 次、每天 100 次（每天台灣時間下午 3／4 點重置）。
+   額度用完、Worker 還沒更新、第一段聲音超過 10 秒沒來或任何錯誤 → 這一則改用手機內建聲音（speakText）；
+   被限流（429）後 10 分鐘內直接用手機聲音，不再空等 */
+const TTS_MODEL = 'gemini-3.8-flash-tts';
+// 使用者要「接近 Siri」：清楚、親切、平穩的女聲。Gemini 內建女聲候選：
+// Erinome（清晰，預設）、Despina（圓潤）、Autonoe（明亮）、Achernar（輕柔）、Vindemiatrix（溫柔）、Sulafat（溫暖）
+// 測試版可在網址加 ?voice=聲音名稱 直接試聽比較，例如 test/?voice=Despina
+const TTS_VOICES = ['Erinome', 'Despina', 'Autonoe', 'Achernar', 'Vindemiatrix', 'Sulafat'];
+const TTS_VOICE = (() => {
+  try { const v = new URLSearchParams(location.search).get('voice'); if (v && TTS_VOICES.includes(v)) return v; } catch (e) {}
+  return 'Erinome';
+})();
+const TTS_STYLE = '像 iPhone 的 Siri 那樣的年輕女性語音助理：咬字清楚、親切溫和、語調平穩自然，帶一點微笑；臺灣口音的國語，語速適中、流暢不拖拍';
+const TTS_FIRST_AUDIO_TIMEOUT = 10000;
+const GEMINI_TTS_MS_PER_CHAR = 230;   // 串流還沒結束、不知道總長度前，先用這個速度逐字；結束後依實際長度校正
+let ttsCtx = null, ttsSeq = 0, ttsOffUntil = 0, ttsSources = [], ttsStream = null, ttsAnalyser = null;
+
+// 必須在使用者點擊當下建立／喚醒 AudioContext，iOS 之後才放得出聲音
+function ttsUnlock() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!ttsCtx) ttsCtx = new AC();
+    if (ttsCtx.state === 'suspended') ttsCtx.resume();
+  } catch (e) { ttsCtx = null; }
+}
+// 語音模式的光球跟著 Gemini 聲音大小律動：所有聲音都經過這個 analyser
+function ttsOut() {
+  if (!ttsAnalyser) { ttsAnalyser = ttsCtx.createAnalyser(); ttsAnalyser.fftSize = 256; ttsAnalyser.connect(ttsCtx.destination); }
+  return ttsAnalyser;
+}
+// base64 PCM 片段 → AudioBuffer；片段可能切在一個樣本中間，多出的 1 byte 留到下一段
+function pcmChunk(b64, carry, rate) {
+  const bin = atob(b64);
+  const off = carry ? 1 : 0;
+  const bytes = new Uint8Array(bin.length + off);
+  if (carry) bytes[0] = carry[0];
+  for (let i = 0; i < bin.length; i++) bytes[i + off] = bin.charCodeAt(i);
+  const n = bytes.length >> 1;
+  const rest = bytes.length & 1 ? bytes.slice(-1) : null;
+  if (!n) return { buf: null, carry: rest };
+  const buf = ttsCtx.createBuffer(1, n, rate);
+  const ch = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) {
+    let v = bytes[2 * i] | (bytes[2 * i + 1] << 8);
+    if (v >= 32768) v -= 65536;
+    ch[i] = v / 32768;
+  }
+  return { buf, carry: rest };
+}
+
+// 開始串流：收到第一段聲音時 resolve 一個 stream 物件（還沒出聲，等 start() 才播）；
+// 失敗或逾時 reject，錯誤訊息就是畫面上顯示的原因
+function geminiStream(text) {
+  if (!ttsCtx) return Promise.reject(new Error('瀏覽器不支援 Web Audio'));
+  if (ttsOffUntil === Infinity) return Promise.reject(new Error('Worker 尚未更新'));
+  if (Date.now() < ttsOffUntil) return Promise.reject(new Error('今日免費額度已用完'));
+  const ctrl = new AbortController();
+  const st = { ctrl, started: false, ended: false, queue: [], nextTime: 0, startAt: 0, total: 0, pace: { msPerChar: GEMINI_TTS_MS_PER_CHAR, endAt: 0 } };
+  st.done = new Promise(r => { st.finish = r; });
+  const checkDone = () => { if (st.ended && (!st.started || ttsCtx.currentTime >= st.nextTime - 0.03)) st.finish(); };
+  // 串流結束、而且已經開始播：知道聲音何時播完，讓逐字出現剛好在同一刻結束
+  const finalizePace = () => { if (st.ended && st.started && st.nextTime) st.pace.endAt = performance.now() + Math.max(0, st.nextTime - ttsCtx.currentTime) * 1000; };
+  const schedule = (buf) => {
+    const src = ttsCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ttsOut());
+    const t = Math.max(st.nextTime, ttsCtx.currentTime + 0.05);
+    if (!st.startAt) st.startAt = t;
+    src.start(t);
+    st.nextTime = t + buf.duration;
+    ttsSources.push(src);
+    src.onended = () => { ttsSources = ttsSources.filter(x => x !== src); checkDone(); };
+  };
+  st.start = () => {
+    if (ttsCtx.state === 'suspended') ttsCtx.resume();
+    st.started = true;
+    st.queue.forEach(schedule);
+    st.queue = [];
+    finalizePace();
+    checkDone();
+    return st.done;
+  };
+  ttsStream = st;
+  return new Promise((resolve, reject) => {
+    let got = false;
+    const timer = setTimeout(() => ctrl.abort(), TTS_FIRST_AUDIO_TIMEOUT);
+    (async () => {
+      try {
+        const res = await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: ctrl.signal,
+          body: JSON.stringify({
+            interactions: true,
+            model: TTS_MODEL,
+            input: [{ type: 'user_input', content: [{ type: 'text', text, annotations: [{ type: 'speech_metadata', style: TTS_STYLE }] }] }],
+            response_format: { type: 'audio' },
+            generation_config: { speech_config: [{ voice: TTS_VOICE }] },
+            stream: true
+          })
+        });
+        if (res.status === 429) { ttsOffUntil = Date.now() + 10 * 60 * 1000; throw new Error('今日免費額度已用完'); }
+        // 舊版 Worker 會把這個請求送到 generateContent，Gemini 回 400
+        if (!res.ok) {
+          const msg = (await res.text().catch(() => '')).replace(/\s+/g, ' ');
+          if (res.status === 400 && /interactions|response_format|Unknown name/i.test(msg)) { ttsOffUntil = Infinity; throw new Error('Worker 尚未更新'); }
+          throw new Error('Gemini 錯誤 ' + res.status + (msg ? '：' + msg.slice(0, 80) : ''));
+        }
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let sse = '', carry = null;
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          sse += dec.decode(value, { stream: true }).replace(/\r/g, '');
+          let k;
+          while ((k = sse.indexOf('\n\n')) >= 0) {
+            const ev = sse.slice(0, k);
+            sse = sse.slice(k + 2);
+            const data = ev.split('\n').filter(l => l.startsWith('data:')).map(l => l.slice(5).trim()).join('');
+            if (!data || data === '[DONE]') continue;
+            let j;
+            try { j = JSON.parse(data); } catch (e) { continue; }
+            if (j.error) throw new Error('Gemini 錯誤 ' + (j.error.code || ''));
+            const d = j.delta || j;
+            if (d.type !== 'audio' || !d.data) continue;
+            const rate = +(/rate=(\d+)/.exec(d.mime_type || '') || [])[1] || 24000;
+            const r = pcmChunk(d.data, carry, rate);
+            carry = r.carry;
+            if (!r.buf) continue;
+            st.total += r.buf.duration;
+            if (st.started) schedule(r.buf); else st.queue.push(r.buf);
+            if (!got) { got = true; clearTimeout(timer); resolve(st); }
+          }
+        }
+        if (!got) throw new Error('沒有收到聲音');
+      } catch (e) {
+        if (!got) reject(new Error(e.name === 'AbortError' ? (ctrl.reason === 'stop' ? '已中斷' : '連線逾時') : e.message));
+      } finally {
+        clearTimeout(timer);
+        st.ended = true;
+        finalizePace();
+        checkDone();
+      }
+    })();
+  });
+}
+
+// 準備朗讀（AI 泡泡出現「之前」呼叫，思考中動畫會多停一下等第一段聲音）：
+// 回傳 { start(), pace, by, why }；start() 開始出聲並回傳「唸完」的 Promise，pace 讓逐字出現的速度跟聲音同步
+// 手機內建聲音沒辦法事先知道長度，用每秒約 4 個字估算
+const BROWSER_TTS_MS_PER_CHAR = 245;
+async function voicePrepare(key, text) {
+  if (!voiceTurn[key] || !text) return null;
+  voiceTurn[key] = false;
+  stopSpeaking();
+  const seq = ttsSeq;
+  const t0 = performance.now();
+  const secs = () => ((performance.now() - t0) / 1000).toFixed(1);
+  try {
+    const st = await geminiStream(ttsClean(text));
+    if (seq !== ttsSeq) return null;     // 等待期間使用者又按了麥克風或離開
+    return { by: 'gemini', why: TTS_VOICE + '，' + secs() + ' 秒開始出聲', pace: st.pace, start: () => st.start() };
+  } catch (e) {
+    console.warn('[tts] 改用手機內建聲音：', e.message);
+    if (seq !== ttsSeq || !CAN_SPEAK) return null;
+    return { by: 'device', why: e.message + '，等了 ' + secs() + ' 秒', pace: { msPerChar: BROWSER_TTS_MS_PER_CHAR, endAt: 0 }, start: () => speakText(text) };
+  }
+}
+// 回覆泡泡出現時：開始出聲、回傳逐字速度；測試版在泡泡下方標示是誰唸的
+let voiceSpeechDone = null;   // 目前這則朗讀唸完的 Promise（語音模式用）
+let voicePace = null;         // 目前這則逐字的速度物件；朗讀被打斷時標記 stop，讓文字一次補完
+function voiceStart(voice, bubble) {
+  if (!voice) return undefined;
+  voicePace = voice.pace;
+  voiceSpeechDone = voice.start();
+  vmOnSpeak(voice.by);
+  if (!IN_TEST) return voice.pace;   // 「Gemini／手機內建語音朗讀」標示只在測試版顯示
+  const tag = document.createElement('div');
+  tag.className = 'tts-tag';
+  tag.textContent = (voice.by === 'gemini' ? 'Gemini 語音朗讀' : '手機內建語音朗讀') + (voice.why ? '（' + voice.why + '）' : '');
+  bubble.parentElement.after(tag);
+  return voice.pace;
+}
+
+function stopSpeaking() {
+  ttsSeq++;
+  if (voicePace) { voicePace.stop = true; voicePace = null; }
+  if (ttsStream) { const st = ttsStream; ttsStream = null; try { st.ctrl.abort('stop'); } catch (e) {} st.finish && st.finish(); }
+  ttsSources.forEach(src => { try { src.stop(); } catch (e) {} });
+  ttsSources = [];
+  if (CAN_SPEAK) speechSynthesis.cancel();
+}
+// 回傳 Promise：唸完（或被中斷）才 resolve，語音模式靠它決定何時再開始聆聽
+function speakText(text) {
+  if (!CAN_SPEAK || !text) return Promise.resolve();
+  speechSynthesis.cancel();
+  if (!ttsVoice) pickVoice();
+  const lines = ttsSentences(text);
+  let done;
+  const p = new Promise(r => { done = r; });
+  // 保險：有些瀏覽器不會觸發 onend
+  const guard = setTimeout(() => done(), [...text].length * 400 + 3000);
+  lines.forEach((line, i) => {
+    const u = new SpeechSynthesisUtterance(line);
+    u.lang = ttsVoice ? ttsVoice.lang : 'zh-TW';
+    if (ttsVoice) u.voice = ttsVoice;
+    u.rate = 0.92;     // 稍微放慢，聽起來比較從容、溫柔
+    u.pitch = 1.04;    // 音調略提一點點，比較柔和（太高會不自然）
+    u.volume = 0.95;
+    if (i === lines.length - 1) u.onend = u.onerror = () => { clearTimeout(guard); done(); };
+    speechSynthesis.speak(u);
+  });
+  if (!lines.length) { clearTimeout(guard); done(); }
+  return p;
+}
+function voiceUI(btn, on) {
+  if (!btn) return;
+  btn.classList.toggle('mic-on', on);
+  btn.setAttribute('aria-label', on ? '停止聆聽' : '語音輸入');
+}
+function voiceStop() { if (voiceRec) { try { voiceRec.stop(); } catch (e) {} } }
+// 直接中止聆聽、丟掉已聽到的內容（離開語音模式用，不會把半句話送出去）
+function voiceAbort() {
+  const rec = voiceRec;
+  if (!rec) return;
+  rec.cancelled = true;
+  try { rec.abort(); } catch (e) { try { rec.stop(); } catch (e2) {} }
+  voiceRec = null;
+}
+
+// hooks（語音模式用，可省略）：interim(文字)、fail(原因)、sent(送出後的 Promise)
+function voiceToggle(key, btn, hooks) {
+  hooks = hooks || {};
+  if (!CAN_VOICE) return;
+  if (voiceRec) { voiceStop(); return; }     // 聆聽中再按一次＝停止
+  stopSpeaking();                             // 打斷正在唸的回覆（剩下的字會一次補完）
+  voiceTurn[key] = false;                     // 還在等的上一則回覆不要出聲，免得被麥克風收進去
+  // iOS 需要在使用者點擊當下先「解鎖」語音合成，等 AI 回覆回來後才唸得出聲音
+  if (CAN_SPEAK) { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); }
+  ttsUnlock();
+
+  const cfg = VOICE_CHAT[key];
+  const input = document.getElementById(cfg.input);
+  const ph = input.dataset.ph || input.placeholder;   // 原本的提示文字，結束後還原
+  input.dataset.ph = ph;
+  const rec = new SpeechRec();
+  rec.lang = 'zh-TW';
+  rec.interimResults = true;
+  rec.continuous = false;
+  rec.maxAlternatives = 1;
+  let finalText = '', errMsg = '';
+
+  rec.onresult = (e) => {
+    let interim = '';
+    finalText = '';
+    for (let i = 0; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalText += t; else interim += t;
+    }
+    finalText = toTrad(finalText);
+    input.value = toTrad(finalText + interim).trim();
+    hooks.interim && hooks.interim(input.value);
+  };
+  rec.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') errMsg = ' ';
+    else if (e.error === 'not-allowed') errMsg = '麥克風沒有開啟權限，請允許後再試，或直接打字';
+    else if (e.error === 'service-not-allowed' || e.error === 'language-not-supported') {
+      // 這個瀏覽器其實用不了語音辨識：收起麥克風，只留文字聊天
+      errMsg = '這個瀏覽器不支援語音輸入，請直接打字';
+      document.documentElement.classList.remove('can-voice');
+    } else errMsg = '沒有聽清楚，再試一次或直接打字';
+  };
+  rec.onend = () => {
+    voiceUI(btn, false);
+    if (voiceRec === rec) voiceRec = null;
+    if (rec.cancelled) { input.value = ''; input.placeholder = ph; hooks.fail && hooks.fail(''); return; }
+    const text = (finalText || input.value).trim();
+    if (errMsg) {
+      input.value = '';
+      input.placeholder = errMsg.trim() || ph;
+      if (errMsg.trim()) setTimeout(() => { if (input.placeholder === errMsg) input.placeholder = ph; }, 3500);
+      hooks.fail && hooks.fail(errMsg.trim());
+      return;
+    }
+    input.placeholder = ph;
+    if (!text) { hooks.fail && hooks.fail(''); return; }
+    // 上一則回覆還在收尾（或還在等 AI）：等它結束再送出，不要把這句話丟掉
+    const send = () => {
+      input.value = text;
+      voiceTurn[key] = true;
+      const p = cfg.send();
+      hooks.sent && hooks.sent(p);
+    };
+    if (!chatBusy[key]) { send(); return; }
+    input.value = text;
+    const t0 = Date.now();
+    const wait = setInterval(() => {
+      if (chatBusy[key] && Date.now() - t0 < 30000) return;
+      clearInterval(wait);
+      if (chatBusy[key] || input.value.trim() !== text) { hooks.fail && hooks.fail(''); return; }
+      send();
+    }, 100);
+  };
+
+  try {
+    rec.start();
+    voiceRec = rec;
+    voiceUI(btn, true);
+    input.placeholder = '正在聆聽，請說話…';
+  } catch (e) { voiceRec = null; hooks.fail && hooks.fail('start'); }
+}
+/* ---------------- 語音模式（全螢幕，連續語音對話） ----------------
+   聆聽 → 送出（沿用聊天室同一套流程，紀錄也留在聊天室）→ 思考 → 朗讀 → 唸完自動再聆聽
+   沒聽到聲音或出錯就停在待機，點光球繼續；按叉叉離開。一來一往，AI 說話時點光球可打斷並改聽你說 */
+const VM_TITLES = { companion: 'AI 茶伴' };
+let vmKey = null, vmLevelRaf = 0, vmTurn = 0;
+function vmEl(id) { return document.getElementById(id); }
+function vmSet(state, status, caption) {
+  const box = vmEl('voice-mode');
+  box.dataset.state = state;
+  if (status != null) vmEl('vm-status').textContent = status;
+  if (caption != null) vmEl('vm-caption').textContent = caption;
+  if (state !== 'speaking-gemini') { cancelAnimationFrame(vmLevelRaf); vmEl('vm-orb').style.transform = ''; }
+}
+// 進入語音模式的提示音：用 Web Audio 現場合成，不用額外音檔。網址加 ?chime=calm|bowl|bubble|bell|drop 可試聽不同音色（預設 calm）
+const VM_CHIMES = {
+  // 沉穩的低音：C3（131Hz）基音，疊上 2、3、4 倍泛音，手機小喇叭放不出基音時耳朵仍會聽成低音；起音柔、慢慢沉下去
+  calm:   [{ type: 'sine', f0: 131, at: 0, peak: 0.24, attack: 0.03, len: 1.2 },
+           { type: 'sine', f0: 262, at: 0, peak: 0.12, attack: 0.03, len: 1.0 },
+           { type: 'sine', f0: 393, at: 0, peak: 0.05, attack: 0.03, len: 0.7 },
+           { type: 'sine', f0: 524, at: 0, peak: 0.02, attack: 0.03, len: 0.5 }],
+  // 頌缽般的低鳴：D3 與相近音產生緩慢共鳴，加泛音讓手機也聽得到
+  bowl:   [{ type: 'sine', f0: 147, at: 0, peak: 0.2, attack: 0.05, len: 1.6 },
+           { type: 'sine', f0: 148.5, at: 0, peak: 0.1, attack: 0.05, len: 1.6 },
+           { type: 'sine', f0: 294, at: 0, peak: 0.08, attack: 0.05, len: 1.2 },
+           { type: 'sine', f0: 397, at: 0, peak: 0.025, attack: 0.05, len: 0.8 }],
+  // 柔和上滑的「啵～」：像 Gemini 開啟語音時那種輕盈的上揚音
+  bubble: [{ type: 'sine', f0: 440, f1: 880, glide: 0.16, at: 0, peak: 0.14, attack: 0.03, len: 0.42 },
+           { type: 'sine', f0: 880, f1: 1760, glide: 0.16, at: 0, peak: 0.035, attack: 0.03, len: 0.30 }],
+  // 溫潤的單音鐘聲：基音加一個高泛音，慢慢消散
+  bell:   [{ type: 'sine', f0: 659, at: 0, peak: 0.13, attack: 0.008, len: 0.9 },
+           { type: 'sine', f0: 1648, at: 0, peak: 0.03, attack: 0.008, len: 0.45 }],
+  // 水滴般的短促「咚」：快速下滑後收尾
+  drop:   [{ type: 'sine', f0: 1200, f1: 520, glide: 0.09, at: 0, peak: 0.15, attack: 0.005, len: 0.28 }]
+};
+const VM_CHIME = VM_CHIMES[new URLSearchParams(location.search).get('chime')] ? new URLSearchParams(location.search).get('chime') : 'calm';
+function vmChime() {
+  ttsUnlock();
+  if (!ttsCtx) return 0;
+  try {
+    const t0 = ttsCtx.currentTime + 0.02;
+    let end = 0;
+    VM_CHIMES[VM_CHIME].forEach(n => {
+      const o = ttsCtx.createOscillator(), g = ttsCtx.createGain(), t = t0 + n.at;
+      o.type = n.type;
+      o.frequency.setValueAtTime(n.f0, t);
+      if (n.f1) o.frequency.exponentialRampToValueAtTime(n.f1, t + n.glide);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(n.peak, t + n.attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + n.len);
+      o.connect(g); g.connect(ttsCtx.destination);
+      o.start(t); o.stop(t + n.len + 0.02);
+      end = Math.max(end, n.at + n.len);
+    });
+    return Math.round(Math.min(end, 0.55) * 1000) + 40;   // 響完（或主要部分結束）才開始聆聽，免得麥克風收到提示音
+  } catch (e) { return 0; }
+}
+function vmOpen(key) {
+  if (!CAN_VOICE) return;
+  vmKey = key;
+  const tea = key === 'product' ? TEA_DB.find(t => t.id === currentTeaId) : null;
+  vmEl('vm-title').textContent = tea ? '「' + tea.name + '」茶伴' : VM_TITLES[key];
+  const box = vmEl('voice-mode');
+  box.classList.add('on');
+  box.setAttribute('aria-hidden', 'false');
+  document.documentElement.style.overflow = 'hidden';
+  const wait = vmChime();
+  vmSet('idle', '', '');
+  // 提示音響完再聆聽；若瀏覽器（例如部分 iOS）不允許非點擊當下開始聆聽，會停在待機請使用者點光球
+  setTimeout(() => { if (vmKey === key && !voiceRec) vmListen(); }, wait);
+}
+function vmClose() {
+  vmKey = null;
+  vmTurn++;
+  voiceAbort();
+  voiceTurn.companion = voiceTurn.product = false;   // 離開時還在等的回覆只顯示文字、不出聲
+  stopSpeaking();
+  const box = vmEl('voice-mode');
+  box.classList.remove('on');
+  box.setAttribute('aria-hidden', 'true');
+  document.documentElement.style.overflow = '';
+  vmSet('idle', '', '');
+  vmShowTea(null);
+}
+// 語音模式裡 AI 茶伴推薦了某款茶：在字幕下方放產品傳送門按鈕，點了就離開語音模式、打開那款茶的介紹頁
+function vmShowTea(tea) {
+  const box = vmEl('vm-tea');
+  box.innerHTML = '';
+  if (!tea || vmKey !== 'companion') return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'chip-in btn-bounce';
+  btn.innerHTML = `${teaIconSVG(tea.id, "#12261A", "w-4 h-4 flex-shrink-0")}看看「${tea.name}」的完整介紹 →`;
+  btn.onclick = () => { vmClose(); openProduct(tea.id); };
+  box.appendChild(btn);
+}
+// 點光球／麥克風：聆聽中 → 停止；說話中 → 打斷並改聽；待機 → 開始聽
+function vmTap() {
+  if (!vmKey) return;
+  if (voiceRec) { voiceStop(); return; }
+  const st = vmEl('voice-mode').dataset.state;
+  if (st === 'thinking') return;
+  stopSpeaking();
+  vmListen();
+}
+function vmListen() {
+  if (!vmKey) return;
+  const key = vmKey, turn = ++vmTurn;   // 每一輪一個編號：被打斷或離開後，舊一輪的後續動作一律作廢
+  if (document.hidden) { vmSet('idle', '點一下光球開始說話', ''); return; }   // 切到別的 App 時不在背景開麥克風
+  vmSet('listening', '正在聆聽…', '');
+  voiceToggle(key, null, {
+    interim: t => { if (vmKey) vmEl('vm-caption').textContent = t; },
+    fail: why => {
+      if (!vmKey || turn !== vmTurn) return;
+      vmSet('idle', why === 'busy' ? '茶伴還在回答上一題' : (why && why !== 'start' ? why : '點一下光球開始說話'), why ? '' : null);
+    },
+    sent: async p => {
+      if (!vmKey || turn !== vmTurn) return;
+      voiceSpeechDone = null;
+      vmShowTea(null);
+      vmSet('thinking', '思考中…', null);
+      await p;                                  // 聊天室那邊回覆打完字
+      if (!vmKey || key !== vmKey || turn !== vmTurn) return;
+      if (voiceSpeechDone) await voiceSpeechDone;  // 聲音唸完
+      if (!vmKey || key !== vmKey || turn !== vmTurn) return;
+      if (vmEl('voice-mode').dataset.state === 'thinking') { vmSet('idle', '連線有點問題，點一下光球再試一次', ''); return; }
+      // 推薦了茶款就先停止收音（使用者不一定會繼續問），點光球才再聽；字幕和傳送門按鈕留著
+      if (vmEl('vm-tea').childElementCount) { vmSet('idle', '想再聊就點一下光球', null); return; }
+      vmListen();
+    }
+  });
+}
+// 回覆開始朗讀時（voiceStart 呼叫）：顯示回覆文字，Gemini 聲音讓光球跟音量律動
+function vmOnSpeak(by) {
+  if (!vmKey) return;
+  vmSet(by === 'gemini' ? 'speaking-gemini' : 'speaking-device', '茶伴正在說…', '');
+  vmCaptionFollow();
+  if (by !== 'gemini' || !ttsAnalyser || REDUCE_MOTION) return;
+  const data = new Uint8Array(ttsAnalyser.fftSize);
+  const orb = vmEl('vm-orb');
+  const tick = () => {
+    ttsAnalyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+    const lvl = Math.min(1, Math.sqrt(sum / data.length) * 4);
+    orb.style.transform = `scale(${(0.92 + lvl * 0.22).toFixed(3)})`;
+    vmLevelRaf = requestAnimationFrame(tick);
+  };
+  cancelAnimationFrame(vmLevelRaf);
+  vmLevelRaf = requestAnimationFrame(tick);
+}
+// 字幕：跟著聊天室泡泡逐字出現的內容走（泡泡本身就跟聲音同步）
+function vmCaptionFollow() {
+  const log = vmEl(vmKey === 'product' ? 'product-chat-log' : 'companion-log');
+  const bubbles = log.querySelectorAll('.msg-in-bot');
+  const b = bubbles[bubbles.length - 1];
+  const step = () => {
+    if (!vmKey || !vmEl('voice-mode').dataset.state.startsWith('speaking')) return;
+    if (b) vmEl('vm-caption').textContent = b.textContent;
+    setTimeout(step, 120);
+  };
+  step();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && vmKey) vmClose(); });
+
+// 離開頁面、切換分頁時停止聆聽與朗讀
+window.addEventListener('pagehide', () => { voiceAbort(); stopSpeaking(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { voiceAbort(); stopSpeaking(); } });
 
 /* ---------------- 產品介紹頁問答 ---------------- */
 async function askProduct(presetText, srcEl) {
-  const tea = TEA_DB.find(t => t.id === currentTeaId);
+  // 記住是哪一款茶問的：回覆回來時就算使用者已經換到別款茶或離開，也存回這款茶自己的紀錄
+  const teaId = currentTeaId, tea = TEA_DB.find(t => t.id === teaId), log = productLogs[teaId];
   const input = document.getElementById('product-chat-input');
   const text = presetText || input.value.trim();
-  if (!text || chatBusy.product) return;
-  chatBusy.product = true;
+  if (!text || productBusy[teaId]) return;
+  productBusy[teaId] = true;
+  // 畫面上還是這款茶的聊天室嗎（換茶、返回再進來都會重建聊天室）
+  const here = () => currentTeaId === teaId && document.getElementById('view-product').classList.contains('active');
   const src = msgSource(input);   // 起飛點：輸入列右下角
   if (!srcEl) flySend('product-chat-input');
   input.value = '';
   document.getElementById('product-chips').innerHTML = '';
   const userBubble = addBubble('product-chat-log', 'user', text, null, true);
-  productLogs[currentTeaId].push({ role: 'user', text });
+  log.push({ role: 'user', text });
   await flyMessage('product-chat-log', userBubble, text, src);
-  addTyping('product-chat-log');
+  productThinking = teaId;
+  if (here()) addTyping('product-chat-log');
 
   const systemPrompt = `你是「一握茶研所」品牌的茶伴 AI，現在使用者正在看的是「${tea.name}」這款茶的介紹頁。
 這款茶資訊：系列「${tea.series}」，配方「${tea.formula}」，風味「${tea.flavor}」，適合情境「${tea.fit}」。
+飲用資訊（回答沖泡、咖啡因、保存等問題時以這裡為準，不要自己另外編數字）：${(tea.drinkInfo || []).map(d => d.label + '：' + d.text).join('；')}。
+文化背景：${tea.culture || ''}
+【語言規範】一律使用臺灣繁體中文與臺灣慣用語回答，即使使用者用簡體字、其他語言或語音辨識出的錯字提問，也只能用繁體中文回答，絕對不能出現任何簡體字。
 請以溫暖、口語、像懂茶的朋友的語氣回答使用者關於這款茶、佛手茶本身、茶葉配方材料、或傳統飲食茶文化的問題。
 使用者前面說過的話你都記得，遇到「這款茶」「剛剛那個」之類的指涉，直接依對話紀錄判斷指的是什麼，不要反問。
 【重要規範】絕對不能使用「燃脂」「排油」「減肥」「瘦身」「代謝」「消脂」等暗示醫療或減重功效的字眼，即使使用者主動問「這款茶能減肥嗎」也一樣。遇到這類問題，只回答茶本身的風味、傳統飲食文化中的角色與感受（例如「讓人餐後感覺清爽舒服」），並清楚說明這是茶飲不是保健品或藥品，不具有醫療或減重功效，不要用任何轉折語氣暗示它「還是有幫助」。
-回答控制在 100 字以內，不要條列，不要使用任何 emoji 表情符號，不要使用「首先/其次」這類生硬詞，不要提及你是語言模型。若問題與茶完全無關，禮貌引導回到茶的話題。
+回答控制在 100 字以內，用純文字，不要使用 Markdown 符號（例如 ** 或 #），不要條列，不要使用任何 emoji 表情符號，不要使用「首先/其次」這類生硬詞，不要提及你是語言模型。若問題與茶完全無關，禮貌引導回到茶的話題。
 【輸出格式】回答結束後，另起一行，固定用這個格式列出 3 個使用者可能想接著問的問題：
 【建議】問題一|問題二|問題三
 規則：問題一必須直接延續使用者剛剛問的內容或你剛剛的回答（追問細節）；問題二、三可以帶到這款茶的其他面向（沖泡方式、風味、適合時機、佛手茶文化等）。每個問題 15 字以內，用使用者的口吻，不要跟對話中已經問過的重複，也不要出現上面禁止的功效字眼。`;
 
   try {
-    const contents = toGeminiContents(productLogs[currentTeaId]);
+    const contents = toGeminiContents(log);
     const raw = await callGemini(systemPrompt, contents);
     // 把 AI 附在最後的【建議】那行拆出來，當作按鈕；泡泡裡只顯示正文
-    const [replyPart, suggestPart] = noEmoji(raw).split('【建議】');
-    const reply = replyPart.trim();
-    const suggestions = suggestPart
-      ? suggestPart.split('|').map(s => s.trim()).filter(Boolean)
-      : [];
+    const [reply, suggestions] = splitSuggest(plainReply(noEmoji(raw)));
+    log.push({ role: 'bot', text: reply });   // 先存進紀錄：中途換頁再回來，也看得到完整回覆
+    if (productThinking === teaId) productThinking = null;
+    if (!here()) { voiceTurn.product = false; return; }
+    const voice = await voicePrepare('product', reply);   // 語音提問：先備好聲音，文字和聲音同時開始
     await removeTyping('product-chat-log');
+    if (!here()) return;
     const bubble = addBubble('product-chat-log', 'bot', '');
-    await typeIntoBubble('product-chat-log', bubble, reply);
-    productLogs[currentTeaId].push({ role: 'bot', text: reply });
-    renderProductChips(suggestions);
+    await typeIntoBubble('product-chat-log', bubble, reply, voiceStart(voice, bubble));
+    if (here()) renderProductChips(suggestions);
   } catch (e) {
+    console.warn('[askProduct]', e);
+    voiceTurn.product = false;
+    if (productThinking === teaId) productThinking = null;
+    // 沒答成的問題從紀錄拿掉，下一題送給 AI 時才不會連著兩則使用者訊息
+    if (log[log.length - 1] && log[log.length - 1].role === 'user') log.pop();
+    if (!here()) return;
     await removeTyping('product-chat-log');
-    const errMsg = '目前連線有點問題，稍後再試試看（' + e.message + '）';
-    addBubble('product-chat-log', 'bot', errMsg, yiIcon('hands', '#D4AF37'));
+    addBubble('product-chat-log', 'bot', CHAT_ERR, yiIcon('hands', '#D4AF37'));
     renderProductChips();
   } finally {
-    chatBusy.product = false;
+    productBusy[teaId] = false;
   }
 }
 
@@ -2172,6 +2922,19 @@ function renderChips(options) {
   });
 }
 
+// 從 AI 回覆找出推薦的是哪款茶：先看『』裡的名字，再比對全名或短名（嫣然／輕盈／暖陽），中間點寫成 · 也認得
+function findMentionedTea(reply) {
+  const short = t => t.name.split('・').pop();
+  const norm = x => x.replace(/[·•．]/g, '・');
+  const hit = x => TEA_DB.find(t => x.includes(t.name) || x.includes(short(t)));
+  const quoted = (/『([^』]+)』/.exec(reply) || [])[1];
+  if (quoted && hit(norm(quoted))) return hit(norm(quoted));
+  // 沒有『』：取最後提到的那一款（「比起 A，今天更適合 B」推薦的是 B）
+  const r = norm(reply);
+  let best = null, at = -1;
+  TEA_DB.forEach(t => { const i = Math.max(r.lastIndexOf(t.name), r.lastIndexOf(short(t))); if (i > at) { at = i; best = t; } });
+  return best;
+}
 async function sendCompanion(srcEl) {
   const input = document.getElementById('companion-input');
   const text = input.value.trim();
@@ -2191,8 +2954,9 @@ async function sendCompanion(srcEl) {
 茶款清單：
 ${dbText}
 
+【語言規範】一律使用臺灣繁體中文與臺灣慣用語回答，即使使用者用簡體字、其他語言或語音辨識出的錯字提問，也只能用繁體中文回答，絕對不能出現任何簡體字。
 請以專業、簡潔、像品茶師介紹茶葉的語氣回覆，格式參考：「今天的你可以試試『茶名』，用一句話說明為什麼適合、能帶來什麼感受。」
-只推薦清單裡的一款，不要編造清單以外的茶。控制在 80 字以內，不要條列，不要使用任何 emoji 表情符號。
+只推薦清單裡的一款，茶名一定要寫完整（例如『一握・輕盈』），不要編造清單以外的茶。控制在 80 字以內，用純文字，不要使用 Markdown 符號，不要條列，不要使用任何 emoji 表情符號。
 使用者前面說過的話你都記得，如果使用者接著問「這款茶的介紹」「為什麼推薦這款」之類的問題，直接針對你剛剛推薦的那一款回答，不要反問使用者是指哪一款。
 【重要規範】絕對不能使用「燃脂」「排油」「減肥」「瘦身」「代謝」「消脂」等暗示醫療或減重功效的字眼，即使使用者主動問也一樣。只能描述風味與情境上的舒適感（例如餐後清爽），並清楚說明茶飲不具醫療或減重功效，不要用任何轉折語氣暗示它「還是有幫助」。
 【輸出格式】回答結束後，另起一行，固定用這個格式列出 3 個使用者可能想接著說的話：
@@ -2203,18 +2967,17 @@ ${dbText}
     const contents = toGeminiContents(companionHistory);
     const raw = await callGemini(systemPrompt, contents);
     // 把 AI 附在最後的【建議】那行拆出來當按鈕；泡泡裡只顯示正文
-    const [replyPart, suggestPart] = noEmoji(raw).split('【建議】');
-    const reply = replyPart.trim();
-    const suggestions = suggestPart
-      ? suggestPart.split('|').map(s => s.trim()).filter(Boolean).slice(0, 3)
-      : [];
+    const [reply, suggestions] = splitSuggest(plainReply(noEmoji(raw)));
+    const voice = await voicePrepare('companion', reply);   // 語音提問：先備好聲音，文字和聲音同時開始
     await removeTyping('companion-log');
     const bubble = addBubble('companion-log', 'bot', '');
-    await typeIntoBubble('companion-log', bubble, reply);
+    // 從 AI 的回覆文字裡比對出提到的是哪一款茶，出現的話在下面加一個可以直接點過去的按鈕
+    const mentionedTea = findMentionedTea(reply);
+    const pace = voiceStart(voice, bubble);
+    if (vmKey === 'companion') vmShowTea(mentionedTea);   // 語音模式畫面也同時顯示產品傳送門
+    await typeIntoBubble('companion-log', bubble, reply, pace);
     companionHistory.push({ role: 'bot', text: reply });
 
-    // 從 AI 的回覆文字裡比對出提到的是哪一款茶，出現的話在下面加一個可以直接點過去的按鈕
-    const mentionedTea = TEA_DB.find(t => reply.includes(t.name));
     if (mentionedTea) {
       const linkWrap = document.createElement('div');
       linkWrap.className = 'flex justify-start mt-1 chip-in';
@@ -2231,8 +2994,12 @@ ${dbText}
     // AI 有給建議就用 AI 的；沒有的話退回預設按鈕
     renderChips(suggestions.length ? suggestions : ['再推薦一次', '想看這款茶的介紹', '換一種心情']);
   } catch (e) {
+    console.warn('[sendCompanion]', e);
+    voiceTurn.companion = false;
+    const last = companionHistory[companionHistory.length - 1];
+    if (last && last.role === 'user') companionHistory.pop();   // 沒答成的問題不要留在紀錄裡
     await removeTyping('companion-log');
-    addBubble('companion-log', 'bot', '目前連線有點問題，稍後再試試看（' + e.message + '）', yiIcon('hands', '#D4AF37'));
+    addBubble('companion-log', 'bot', CHAT_ERR, yiIcon('hands', '#D4AF37'));
     renderChips(['想放鬆一下', '最近外食比較多', '想喝點溫暖的']);
   } finally {
     chatBusy.companion = false;
@@ -2343,7 +3110,9 @@ function renderStamps(justGot) {
   }).join('');
   const cert = document.getElementById('stamp-cert');
   if (stamps.length === 3) {
-    certFile = null; buildCert();
+    certFile = null; buildCert().catch(e => console.warn('[cert]', e));
+    // 剛集滿第三個章：證書卡在集章卡最下面，手機上常在畫面外，自動捲過去
+    if (justGot && document.getElementById('view-lab').classList.contains('active')) setTimeout(() => cert.scrollIntoView({ behavior: 'smooth', block: 'center' }), 700);
     const d = new Date();
     cert.innerHTML = `<div class="mt-5 rounded-2xl border border-tea-gold/60 p-5 text-center" style="background:linear-gradient(135deg, rgba(212,175,55,.18), rgba(212,175,55,.04))">
       <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold">CERTIFICATE</div>
@@ -2372,15 +3141,29 @@ function certIcon(ctx, svg, cx, cy, size, color) {
   ctx.restore();
 }
 async function buildCert() {
-  try { await Promise.all([document.fonts.load('700 64px "Noto Serif TC"', '一握體驗館完成證'), document.fonts.load('400 36px "Noto Sans TC"', CERT_BODY.join(''))]); } catch (e) {}
+  // 先把畫上去的每個字的字型都載好（Google Fonts 依字分檔，沒載到的字會用系統字型畫，canvas 不會再補畫）
+  const d0 = new Date(), dateText = `一握茶研所　${d0.getFullYear()}/${d0.getMonth() + 1}/${d0.getDate()}`;
+  try { await Promise.all([
+    document.fonts.load('700 66px "Noto Serif TC"', '一握體驗館・製茶證書'),
+    document.fonts.load('700 36px "Noto Sans TC"', STAMP_DEFS.map(x => x.name).join('')),
+    document.fonts.load('500 30px "Noto Sans TC"', 'CERTIFICATE'),
+    document.fonts.load('400 38px "Noto Sans TC"', CERT_BODY.join('') + dateText + '把佛手的溫潤，留給忙碌生活裡的你')
+  ]); } catch (e) {}
   const W = 1080, H = 1350, GOLD = '#D4AF37';
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
   const bg = ctx.createLinearGradient(0, 0, W, H);
   bg.addColorStop(0, '#0E1F15'); bg.addColorStop(.55, '#1C3A27'); bg.addColorStop(1, '#4A3A12');
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = GOLD; ctx.lineWidth = 4; ctx.beginPath(); ctx.roundRect(44, 44, W - 88, H - 88, 44); ctx.stroke();
-  ctx.globalAlpha = .45; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect(64, 64, W - 128, H - 128, 32); ctx.stroke(); ctx.globalAlpha = 1;
+  // 圓角框：iOS 15 以前的 Safari 沒有 ctx.roundRect，改用 arcTo 畫
+  const rr = (x, y, w, h, r) => {
+    ctx.beginPath();
+    if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  };
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 4; rr(44, 44, W - 88, H - 88, 44); ctx.stroke();
+  ctx.globalAlpha = .45; ctx.lineWidth = 1.5; rr(64, 64, W - 128, H - 128, 32); ctx.stroke(); ctx.globalAlpha = 1;
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   ctx.fillStyle = GOLD; ctx.font = '500 30px "Noto Sans TC", sans-serif';
   certSpaced(ctx, 'CERTIFICATE', W / 2, 200, 14);
@@ -2401,12 +3184,12 @@ async function buildCert() {
   });
   ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.font = '400 38px "Noto Sans TC", sans-serif';
   CERT_BODY.forEach((t, i) => ctx.fillText(t, W / 2, 830 + i * 60));
-  const d = new Date();
   ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = '400 32px "Noto Sans TC", sans-serif';
-  ctx.fillText(`一握茶研所　${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`, W / 2, 1070);
+  ctx.fillText(dateText, W / 2, 1070);
   ctx.fillStyle = 'rgba(212,175,55,.8)'; ctx.font = '400 28px "Noto Sans TC", sans-serif';
   ctx.fillText('把佛手的溫潤，留給忙碌生活裡的你', W / 2, 1180);
   const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  if (!blob) throw new Error('toBlob failed');
   certFile = new File([blob], '一握體驗館_製茶證書.png', { type: 'image/png' });
   return certFile;
 }
@@ -2416,22 +3199,47 @@ function certDownload(file) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
+// 手機（尤其 LINE／FB／IG 內建瀏覽器）不支援分享也不支援下載：直接把證書圖片秀出來，長按存到相簿
+function certShowImage(file) {
+  const url = URL.createObjectURL(file);
+  const m = document.createElement('div');
+  m.className = 'fixed inset-0 z-[160] flex flex-col items-center justify-center p-5';
+  m.style.background = 'rgba(0,0,0,.88)';
+  m.innerHTML = `<img src="${url}" alt="一握體驗館・製茶證書" style="max-width:100%; max-height:72vh; border-radius:16px; -webkit-touch-callout:default; user-select:auto">
+    <p class="text-sm text-white/80 mt-4">長按圖片，選「儲存到照片」或「下載圖片」</p>
+    <button type="button" class="mt-4 px-6 py-2 rounded-full text-sm font-bold border border-white/30 text-white btn-bounce">關閉</button>`;
+  m.querySelector('button').onclick = () => { m.remove(); URL.revokeObjectURL(url); };
+  document.body.appendChild(m);
+}
+let certBusy = false;
 async function shareCert() {
+  if (certBusy) return;   // 連點兩下不要跑兩次
+  certBusy = true;
   const msg = document.getElementById('cert-msg');
-  if (!certFile) { if (msg) msg.innerText = '證書產生中…'; await buildCert(); }
-  const data = { files: [certFile], title: '一握體驗館・製茶證書' };
-  if (navigator.canShare && navigator.canShare(data)) {
-    try { await navigator.share(data); if (msg) msg.innerText = ''; return; }
-    catch (e) { if (e.name === 'AbortError') { if (msg) msg.innerText = ''; return; } }
-  }
-  certDownload(certFile);
-  if (msg) msg.innerText = '證書圖片已下載';
+  try {
+    if (!certFile) { if (msg) msg.innerText = '證書產生中…'; await buildCert(); }
+    const data = { files: [certFile], title: '一握體驗館・製茶證書' };
+    if (navigator.canShare && navigator.canShare(data)) {
+      try { await navigator.share(data); if (msg) msg.innerText = ''; return; }
+      catch (e) { if (e.name === 'AbortError') { if (msg) msg.innerText = ''; return; } }
+    }
+    const phone = IN_APP_BROWSER || matchMedia('(pointer: coarse)').matches;
+    if (phone) { certShowImage(certFile); if (msg) msg.innerText = ''; return; }
+    certDownload(certFile);
+    if (msg) msg.innerText = '證書圖片已下載';
+  } catch (e) {
+    console.warn('[cert]', e);
+    if (msg) msg.innerText = '證書產生失敗，請再試一次';
+  } finally { certBusy = false; }
 }
 
 function stampReset() {
   stamps = [];
   try { sessionStorage.removeItem('yw-stamps'); sessionStorage.removeItem('yw-procstep'); } catch (e) {}
+  // 三關的進度也一起歸零，不然製茶工序還顯示「完成了」卻沒有章、下一站按不過去
+  procReset(); quizReset(); labReset(true);
   renderStamps();
+  labTab('process');
 }
 let labTabNow = null;
 const TAB_NAMES = { process: '① 製茶工序', diy: '② DIY 調茶', quiz: '③ 茶知識問答' };
@@ -2479,7 +3287,7 @@ function labTab(k) {
    拖動距離超過門檻才算「拖曳」，沒超過就當作「點一下」，兩種操作互不干擾。 */
 function bindDrag(handleEl, opts) {
   handleEl.style.touchAction = 'none';
-  // iPhone：長按會觸發選取文字／放大鏡／系統選單，拖曳配料時要擋掉（點一下、拖曳都改由 pointer 事件處理）
+  // iPhone：長按會觸發選取文字／放大鏡／系統選單，拖曳時要擋掉（點一下、拖曳都改由 pointer 事件處理）
   handleEl.style.webkitUserSelect = handleEl.style.userSelect = 'none';
   handleEl.style.webkitTouchCallout = 'none';
   handleEl.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
@@ -2522,7 +3330,7 @@ function bindDrag(handleEl, opts) {
 }
 function pointInRect(x, y, rect) { return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom; }
 
-/* ================= 第二站：DIY 調茶 —— 把配料真的拖進杯子裡 ================= */
+/* ================= 第二站：DIY 調茶 —— 點選配料加入杯子 ================= */
 function labRender() {
   const box = document.getElementById('lab-ings');
   box.innerHTML = '';
@@ -2542,27 +3350,9 @@ function labRender() {
     wrap.appendChild(label);
     box.appendChild(wrap);
 
-    if (on) {
-      // 已在杯中：點一下拿掉
-      b.onclick = () => labRemove(g.id);
-    } else {
-      // 不在杯中：可以拖進杯子，也可以點一下（給不方便拖曳的人用）加入
-      bindDrag(b, {
-        makeGhost: () => { const d = document.createElement('div'); d.innerHTML = labBitSVG(g.id, g.color, 40); d.style.width = d.style.height = '40px'; return d; },
-        onStart: () => document.getElementById('lab-cup').classList.add('drop-target-hot'),
-        onMove: (x, y) => {
-          const cup = document.getElementById('lab-cup').getBoundingClientRect();
-          document.getElementById('lab-cup').style.transform = pointInRect(x, y, cup) ? 'scale(1.04)' : '';
-        },
-        onEnd: (x, y) => {
-          const cupEl = document.getElementById('lab-cup');
-          cupEl.classList.remove('drop-target-hot'); cupEl.style.transform = '';
-          const cup = cupEl.getBoundingClientRect();
-          if (pointInRect(x, y, cup)) labAdd(g.id, (x - cup.left) / cup.width);
-        },
-        onTap: () => labAdd(g.id, 0.5)
-      });
-    }
+    // 點一下加入杯子，已加入的再點一下拿掉
+    b.setAttribute('aria-label', (on ? '拿掉' : '加入') + g.name);
+    b.onclick = () => { if (labBrewing()) return; on ? labRemove(g.id) : labAdd(g.id, 0.25 + Math.random() * 0.5); };
   });
   document.getElementById('lab-picked').innerText = labPicked.length
     ? labPicked.map(id => LAB_INGS.find(x => x.id === id).name).join('、') : '還沒有加入配料';
@@ -2570,7 +3360,7 @@ function labRender() {
   document.getElementById('lab-bars').innerHTML = LAB_DIMS.map(k => `
     <div class="flex items-center gap-2 text-[11px]">
       <span class="w-8 text-white/60 flex-shrink-0">${k}</span>
-      <div class="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full rounded-full bg-tea-gold transition-all duration-500" style="width:${Math.min(v[k] / 6, 1) * 100}%"></div></div>
+      <div class="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden"><div class="h-full bg-tea-gold" style="width:100%; transform-origin:left center; transform:scaleX(${Math.min(v[k] / 6, 1).toFixed(3)}); transition:transform .5s ease"></div></div>
     </div>`).join('');
 }
 // 顏色深淺：k < 0 往黑色調暗、k > 0 往白色調亮
@@ -2579,7 +3369,7 @@ function labTone(hex, k) {
   const t = k < 0 ? 0 : 255, w = Math.abs(k);
   return '#' + a.map(v => Math.round(v * (1 - w) + t * w).toString(16).padStart(2, '0')).join('');
 }
-// 每種配料的圖案：用同色系的深、淺色做出陰影、紋理與亮面（杯中、配料按鈕、拖曳時共用）
+// 每種配料的圖案：用同色系的深、淺色做出陰影、紋理與亮面（杯中、配料按鈕共用）
 function labBitSVG(id, color, size) {
   const c = color, d = labTone(color, -0.38), l = labTone(color, 0.32), hi = 'rgba(255,255,255,.5)';
   const shapes = {
@@ -2634,7 +3424,10 @@ function labBitSVG(id, color, size) {
   };
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}">${shapes[id] || `<circle cx="12" cy="12" r="6" fill="${color}"/>`}</svg>`;
 }
+// 沖泡中不能加減配料（否則半杯茶的結果會被改掉）
+function labBrewing() { const b = document.getElementById('lab-brew-btn'); return !!(b && b.disabled); }
 function labAdd(id, xRatio) {
+  if (labBrewing()) return;
   const hint = document.getElementById('lab-hint');
   if (labPicked.includes(id)) return;
   if (labPicked.length >= 3) { hint.innerText = '最多只能選 3 種配料喔'; return; }
@@ -2647,6 +3440,7 @@ function labAdd(id, xRatio) {
   if (labPicked.length === 3) setTimeout(() => document.getElementById('lab-settings').scrollIntoView({ behavior: 'smooth', block: 'center' }), 1100);
 }
 function labRemove(id) {
+  if (labBrewing()) return;
   labPicked = labPicked.filter(x => x !== id);
   labRemovePieces(id);
   document.getElementById('lab-hint').innerText = '';
@@ -2743,15 +3537,24 @@ function labFloatPieces() {
     labLater(() => el.classList.add('floating'), d + dur);
   });
 }
+// 茶湯顏色：烏龍茶底 → 配料染色（泡越久、水越熱，配料顏色釋出越多）→ 水溫與時間決定濃淡
 function labColor() {
   const t = +document.getElementById('lab-temp').value, m = +document.getElementById('lab-time').value;
-  const base = labMix(['#C8872E', '#C8872E', ...labPicked.map(id => LAB_INGS.find(x => x.id === id).color)]);
-  const k = Math.max(-0.4, Math.min(0.45, (m - 3) * 0.08 + (t - 90) * 0.012));
-  const toward = k >= 0 ? '#2A1506' : '#F2DCA0';
-  const w = Math.abs(k);
-  const a = [1, 3, 5].map(i => parseInt(base.slice(i, i + 2), 16));
-  const b = [1, 3, 5].map(i => parseInt(toward.slice(i, i + 2), 16));
-  return '#' + a.map((v, i) => Math.round(v * (1 - w) + b[i] * w).toString(16).padStart(2, '0')).join('');
+  const mixTo = (from, to, w) => {
+    const a = [1, 3, 5].map(i => parseInt(from.slice(i, i + 2), 16));
+    const b = [1, 3, 5].map(i => parseInt(to.slice(i, i + 2), 16));
+    return '#' + a.map((v, i) => Math.round(v * (1 - w) + b[i] * w).toString(16).padStart(2, '0')).join('');
+  };
+  // 萃取程度 0～1：80°C・1 分鐘最淡，100°C・6 分鐘最濃
+  const e = Math.max(0, Math.min(1, (t - 80) / 20 * 0.5 + (m - 1) / 5 * 0.5));
+  let col = '#C8872E';
+  if (labPicked.length) {
+    const tint = labMix(labPicked.map(id => LAB_INGS.find(x => x.id === id).color));
+    col = mixTo(col, tint, (0.3 + 0.08 * labPicked.length) * (0.6 + 0.6 * e));
+  }
+  // 中間值（約 90°C・3 分鐘）維持原色；偏淡往淺金黃、偏濃往深褐
+  const k = e - 0.45;
+  return k >= 0 ? mixTo(col, '#3A1A08', k * 1.05) : mixTo(col, '#F3DFA6', -k * 1.3);
 }
 function labTip() {
   const t = +document.getElementById('lab-temp').value, m = +document.getElementById('lab-time').value;
@@ -2841,8 +3644,10 @@ function labDrips() {
     labLater(() => { g.remove(); labRipple(53.8, LAB_SURFACE_FULL); }, 400);
   }, d));
 }
+var labPendingResult = false;   // 沖泡途中離開體驗館：結果等回到體驗館再跳出來，不要跳在別的頁面上
 function labBrewDone(btn) {
-  labShowResult(); btn.disabled = false; btn.innerText = '再沖泡一次'; btn.classList.remove('opacity-60');
+  if (document.getElementById('view-lab').classList.contains('active')) labShowResult(); else labPendingResult = true;
+  btn.disabled = false; btn.innerText = '再沖泡一次'; btn.classList.remove('opacity-60');
   stampSet('diy');
 }
 function labBrew() {
@@ -2962,9 +3767,9 @@ function labModal(html) {
 // 從首頁進體驗館：完全沒開始過 → 關卡介紹；做到一半 → 「歡迎回來」；三個章都集滿 → 不跳視窗，直接進館
 function openLab() {
   showView('lab');
-  if (stamps.length >= STAMP_DEFS.length) return;
+  if (stamps.length >= STAMP_DEFS.length || labPendingResult) return;
   const hasProgress = stamps.length > 0 || procStep > 0;
-  setTimeout(hasProgress ? labWelcomeBack : labIntro, 450);
+  setTimeout(() => { if (document.getElementById('view-lab').classList.contains('active')) (hasProgress ? labWelcomeBack : labIntro)(); }, 450);
 }
 function labNextTab() {
   if (!stamps.includes('process')) return 'process';
@@ -2973,7 +3778,7 @@ function labNextTab() {
 }
 function labProgressLabel() {
   if (stamps.includes('diy')) return '準備挑戰「③ 茶知識問答」';
-  if (stamps.includes('process')) return '準備挑戰「② 茶飲DIY」';
+  if (stamps.includes('process')) return '準備挑戰「② DIY 調茶」';
   if (procStep > 0) return `「① 製茶工序」做到「${PROCESS_STEPS[procStep].name}」`;
   return '準備挑戰「① 製茶工序」';
 }
@@ -2999,7 +3804,7 @@ function labIntro() {
   labModalClose(true);
   const rows = [
     ['① 製茶工序', '用拖曳、滑動、畫圈、按住等手勢，親手完成採摘到焙火六道工序'],
-    ['② 茶飲DIY', '把配料拖進杯子、設定水溫與浸泡時間，沖一杯屬於你的茶'],
+    ['② DIY 調茶', '點選配料、設定水溫與浸泡時間，沖一杯屬於你的茶'],
     ['③ 茶知識問答', '5 題小測驗，認識佛手茶與三款茶的配料故事']
   ];
   // 內容依序淡入：每項晚 0.06 秒
@@ -3048,7 +3853,8 @@ function labModalClose(instant) {
   setTimeout(() => m.remove(), m.classList.contains('ap') ? 400 : 220);
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') labModalClose(); });
-function labReset() {
+function labReset(noScroll) {
+  labPendingResult = false;
   labPicked = [];
   document.getElementById('lab-temp').value = 90;
   document.getElementById('lab-time').value = 3;
@@ -3067,7 +3873,7 @@ function labReset() {
   const btn = document.getElementById('lab-brew-btn'); btn.innerText = '③ 開始沖泡';
   btn.disabled = false; btn.classList.remove('opacity-60');
   labRender(); labUpdate();
-  document.getElementById('st-diy').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!noScroll) document.getElementById('st-diy').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* ================= 第一站：製茶工序 —— 每一步用不同的手勢完成 =================
@@ -3149,15 +3955,15 @@ function drawProc() {
   if (pp >= 1) s += `<g><circle cx="100" cy="100" r="30" fill="rgba(212,175,55,.92)"/><path d="M86 100l10 10 18-20" stroke="#12261A" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></g>`;
   svg.innerHTML = s;
   const bar = document.getElementById('proc-bar');
-  if (bar) bar.style.width = Math.round(Math.min(pp, 1) * 100) + '%';
+  if (bar) bar.style.transform = 'scaleX(' + Math.min(pp, 1).toFixed(3) + ')';
   const seg = document.getElementById('seg-now');
-  if (seg) seg.style.width = Math.round(Math.min(pp, 1) * 100) + '%';
+  if (seg) seg.style.transform = 'scaleX(' + Math.min(pp, 1).toFixed(3) + ')';
 }
 function renderProcess() {
   const st = PROCESS_STEPS[procStep];
   const dots = PROCESS_STEPS.map((s, i) => `
     <div class="flex-1 text-center">
-      <div class="seg ${i === procStep && !procDone ? 'active' : ''}"><div class="seg-fill" ${i === procStep && !procDone ? 'id="seg-now"' : ''} style="width:${i < procStep || procDone ? 100 : i === procStep ? Math.round(pp * 100) : 0}%"></div></div>
+      <div class="seg ${i === procStep && !procDone ? 'active' : ''}"><div class="seg-fill" ${i === procStep && !procDone ? 'id="seg-now"' : ''} style="transform:scaleX(${i < procStep || procDone ? 1 : i === procStep ? Math.min(pp, 1).toFixed(3) : 0})"></div></div>
       <div class="text-[10px] mt-1.5 ${i === procStep && !procDone ? 'text-tea-gold font-bold' : 'text-white/40'}">${s.name}</div>
     </div>`).join('');
   const box = document.getElementById('st-process');
@@ -3187,7 +3993,7 @@ function renderProcess() {
         <svg id="proc-svg" viewBox="0 0 200 200" class="w-full h-full"></svg>
       </div>
       <p class="text-center text-xs text-tea-gold font-bold mt-3"><span class="mr-1"><svg class="yi" aria-hidden="true"><use href="#yi-tap"/></svg></span>${st.hint}</p>
-      <div class="mx-auto max-w-[280px] h-1.5 rounded-full bg-white/10 mt-3 overflow-hidden"><div id="proc-bar" class="h-full rounded-full bg-tea-gold" style="width:0%; transition: width .15s linear"></div></div>
+      <div class="mx-auto max-w-[280px] h-1.5 rounded-full bg-white/10 mt-3 overflow-hidden"><div id="proc-bar" class="h-full bg-tea-gold" style="width:100%; transform:scaleX(0); transform-origin:left center; transition: transform .15s linear"></div></div>
       <div class="text-center mt-3"><button onclick="procSkip()" class="text-[11px] text-white/35 underline">跳過這一步</button></div>
       ${procStep === 5 && /[?&]debug=1/.test(location.search) ? `<div class="text-center mt-3 text-[11px] text-white/60">
         <button onclick="vibTest()" class="px-4 py-1.5 rounded-full border border-white/30">震動測試</button>
@@ -3254,16 +4060,27 @@ function bindProcPad() {
 }
 // 震動回饋：用標準的 navigator.vibrate（Android 支援；iPhone 瀏覽器目前不支援，
 // 沒有震動也沒關係，畫面上的「咚」視覺回饋一樣看得到節奏）。
+function padRing(pad) {
+  const host = pad.offsetParent;
+  if (!host) return;
+  const r = document.createElement('div');
+  r.className = 'pad-ring';
+  r.style.left = pad.offsetLeft + 'px'; r.style.top = pad.offsetTop + 'px';
+  r.style.width = pad.offsetWidth + 'px'; r.style.height = pad.offsetHeight + 'px';
+  r.addEventListener('animationend', () => r.remove());
+  setTimeout(() => r.remove(), 800);
+  host.appendChild(r);
+}
 function procPulse() {
   const pad = document.getElementById('proc-pad');
-  if (pad) { pad.classList.remove('pad-pulse'); void pad.offsetWidth; pad.classList.add('pad-pulse'); }
+  if (pad) { pad.classList.remove('pad-pulse'); void pad.offsetWidth; pad.classList.add('pad-pulse'); padRing(pad); }
 }
 function procBuzz() {
   try {
     if (typeof navigator.vibrate === 'function') navigator.vibrate(BUZZ_MS);
   } catch (e) {}
   const pad = document.getElementById('proc-pad');
-  if (pad) { pad.classList.remove('pad-pulse'); void pad.offsetWidth; pad.classList.add('pad-pulse'); }
+  if (pad) { pad.classList.remove('pad-pulse'); void pad.offsetWidth; pad.classList.add('pad-pulse'); padRing(pad); }
 }
 const HOLD_MS = 2400;
 const BUZZ_MS = 25;    // 每次震動的長度：極短＝清脆的「噠」（線性馬達效果最明顯）；數字越大越厚實
@@ -3378,8 +4195,15 @@ renderStamps(); renderProcess(); renderQuiz(); labRender(); labUpdate(); labTab(
 renderLandingCards();
 
 // 掃 QR code 直接開到指定茶款：網址帶 ?tea=yanran / qingying / nuanyang
-history.replaceState({ v: 'landing', t: null, d: 0, y: 0 }, '');
+// 重新整理（或回到這個分頁）時，瀏覽紀錄裡已經有這一頁：直接回到那一頁，不再多疊一筆首頁紀錄（否則要按好幾次返回才離得開）
 (function openFromQR() {
+  const st = history.state;
+  if (st && st.v) {
+    if (st.v === 'product' && st.t && TEA_DB.some(t => t.id === st.t)) { tin360SkipIntro = true; openProduct(st.t, true); }
+    else if (st.v !== 'landing' && document.getElementById('view-' + st.v)) showView(st.v, true, 0);
+    return;
+  }
+  history.replaceState({ v: 'landing', t: null, d: 0, y: 0 }, '');
   const teaId = new URLSearchParams(location.search).get('tea');
   if (teaId && TEA_DB.some(t => t.id === teaId)) { tin360SkipIntro = true; openProduct(teaId); }
 })();
