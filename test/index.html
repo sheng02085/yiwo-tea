@@ -1109,7 +1109,8 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
         <div class="p-4 border-b border-white/10 flex items-center gap-2">
           <span class="text-emerald-300 text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-pot"/></svg></span>
           <span class="text-sm font-bold">AI 茶伴</span>
-          <button type="button" class="vm-entry ml-auto btn-bounce" onclick="vmOpen('companion')" aria-label="開啟語音模式"><span class="vm-dot" aria-hidden="true"></span>語音模式</button>
+          <button type="button" onclick="companionIntro()" class="ml-auto mr-1 text-[11px] text-white/45 underline underline-offset-2 btn-bounce">使用說明</button>
+          <button type="button" class="vm-entry btn-bounce" onclick="vmOpen('companion')" aria-label="開啟語音模式"><span class="vm-dot" aria-hidden="true"></span>語音模式</button>
         </div>
         <div id="companion-log" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs" style="max-height:min(55vh, 520px)"></div>
         <div id="companion-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
@@ -2019,6 +2020,12 @@ function showView(name, fromHistory, restoreY) {
 
   if (name === 'companion' && document.getElementById('companion-log').children.length === 0) {
     startCompanion();
+  }
+  // 第一次打開 AI 茶伴：跳出使用說明（從調茶結果直接過來聊那杯茶時先不跳，下次再說明）
+  if (name === 'companion' && !labChatPending) {
+    let seen = false;
+    try { seen = localStorage.getItem('yw-ai-intro') === '1'; } catch (e) {}
+    if (!seen) setTimeout(() => { if (document.getElementById('view-companion').classList.contains('active')) companionIntro(); }, 450);
   }
 }
 
@@ -2962,6 +2969,51 @@ ${tm.text}。
     try { sessionStorage.setItem(key, t); } catch (e) {}
     return t;
   } catch (e) { console.warn('[greet]', e); return fallback; }
+}
+/* ---------- AI 茶伴使用說明：第一次打開時跳出，之後可按標題列的「使用說明」再看 ----------
+   跟體驗館的關卡介紹用同一個視窗（#lab-modal.ap）與動畫 */
+function companionIntro() {
+  try { localStorage.setItem('yw-ai-intro', '1'); } catch (e) {}
+  labModalClose(true);
+  const voice = document.documentElement.classList.contains('can-voice');
+  const rows = [
+    ['chat', '說說今天的狀態', '在下方輸入框打字，例如「下午有點累」「想喝點溫暖的」'],
+    ['tap', '點選建議', '不知道說什麼？點輸入框上方的建議按鈕就能接著聊'],
+    ...(voice ? [['mic', '用說的也可以', '按麥克風說話，或開啟右上角「語音模式」，茶伴會唸給你聽']] : []),
+    ['cup', '看推薦的茶', '回覆下方的按鈕，直接打開推薦茶款的介紹']
+  ];
+  const d = i => `--d:${(0.12 + i * 0.06).toFixed(2)}s`;
+  const m = document.createElement('div');
+  m.id = 'lab-modal';
+  m.className = 'ap fixed inset-0 z-[150] flex items-center justify-center p-5';
+  m.innerHTML = `
+    <div class="modal-bg absolute inset-0" onclick="labModalClose()"></div>
+    <div class="ap-beam" aria-hidden="true"></div>
+    <div class="modal-card relative w-full max-w-sm rounded-[2rem] p-6 pt-8 border border-tea-gold/40 shadow-2xl" style="background:linear-gradient(160deg,#1C3A27 0%,#2A3320 55%,#3A2E12 100%); max-height:calc(100dvh - 2.5rem); overflow-y:auto; overscroll-behavior:contain">
+      <span class="ap-corner tl" aria-hidden="true"></span><span class="ap-corner tr" aria-hidden="true"></span><span class="ap-corner bl" aria-hidden="true"></span><span class="ap-corner br" aria-hidden="true"></span>
+      <button onclick="labModalClose()" aria-label="關閉" class="absolute top-3 right-4 z-10 text-white/50 text-2xl leading-none">×</button>
+      <div class="ap-item text-center" style="${d(0)}">
+        <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold">HOW TO USE</div>
+        <div class="font-serif text-2xl font-bold mt-1">認識 AI 茶伴</div>
+        <p class="text-xs text-white/60 mt-2 leading-relaxed">跟我說說你今天的狀態或心情<br>我幫你從三款「一握」裡挑一杯</p>
+      </div>
+      <div class="space-y-3 mt-5">${rows.map((r, i) => `
+        <div class="ap-item flex items-start gap-3 rounded-2xl bg-black/20 border border-white/10 p-3" style="${d(i + 1)}">
+          <div class="w-10 h-10 flex-shrink-0 rounded-full border border-tea-gold/60 flex items-center justify-center text-tea-gold text-lg leading-none">
+            <svg class="yi" aria-hidden="true"><use href="#yi-${r[0]}"/></svg>
+          </div>
+          <div class="text-left">
+            <div class="text-sm font-bold text-tea-gold">${r[1]}</div>
+            <div class="text-[11px] text-white/65 leading-relaxed mt-0.5">${r[2]}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+      <p class="ap-item text-[10px] text-white/40 text-center leading-relaxed mt-4" style="${d(rows.length + 1)}">回覆由 AI 產生，僅供參考；茶飲不具醫療或保健功效</p>
+      <div class="ap-item text-center mt-4" style="${d(rows.length + 2)}">
+        <button onclick="labModalClose()" class="px-8 py-2.5 rounded-full text-sm font-bold bg-tea-gold text-tea-dark btn-bounce">開始聊天</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
 }
 async function startCompanion() {
   if (labChatPending) { setTimeout(companionSendPending, 450); return; }   // 從調茶結果過來：不打招呼，直接聊那杯茶
