@@ -3001,6 +3001,18 @@ function findMentionedTea(reply) {
   TEA_DB.forEach(t => { const i = Math.max(r.lastIndexOf(t.name), r.lastIndexOf(short(t))); if (i > at) { at = i; best = t; } });
   return best;
 }
+// AI 偶爾不照字數規定：超過上限就整句整句刪，保留推薦茶名的那一句（茶款按鈕靠它）
+function capReply(text, max) {
+  if (text.length <= max) return text;
+  const parts = text.match(/[^。！？]+[。！？]?/g) || [text];
+  const hasTea = x => /『[^』]+』/.test(x) || TEA_DB.some(t => x.includes(t.name) || x.includes(t.name.split('・').pop()));
+  const key = parts.reduce((k, x, i) => hasTea(x) ? i : k, -1);   // 最後一句提到茶名的
+  const keep = new Set(key >= 0 ? [key] : []);
+  let len = key >= 0 ? parts[key].length : 0;
+  parts.forEach((x, i) => { if (!keep.has(i) && len + x.length <= max) { keep.add(i); len += x.length; } });
+  const out = parts.filter((_, i) => keep.has(i)).join('').trim();
+  return out || text;
+}
 async function sendCompanion(srcEl) {
   const input = document.getElementById('companion-input');
   const text = input.value.trim();
@@ -3023,7 +3035,7 @@ ${dbText}
 【語言規範】一律使用臺灣繁體中文與臺灣慣用語回答，即使使用者用簡體字、其他語言或語音辨識出的錯字提問，也只能用繁體中文回答，絕對不能出現任何簡體字。
 請以專業、簡潔、像品茶師介紹茶葉的語氣回覆，格式參考：「今天的你可以試試『茶名』，用一句話說明為什麼適合、能帶來什麼感受。」
 只推薦清單裡的一款，茶名一定要寫完整（例如『一握・輕盈』），不要編造清單以外的茶。控制在 80 字以內，用純文字，不要使用 Markdown 符號，不要條列，不要使用任何 emoji 表情符號。
-如果使用者聊的是他在體驗館自己調的茶，先用一兩句描述那杯茶的香氣、口感和適合喝的時刻（只講風味與感受），再點出清單裡最接近的一款『茶名』，可以順口提到用到的配料。
+如果使用者聊的是他在體驗館自己調的茶：整段回答最多 100 字（含標點），只寫兩句：第一句描述那杯茶的香氣、口感和適合喝的時刻（只講風味與感受），第二句點出清單裡最接近的一款『茶名』，不要再多加說明。
 現在的時間：${teaMoment().text}。推薦時可以順口帶到時段或節氣的氛圍（只講季節意象，不要描述實際天氣，也不要扯到養生進補）。
 使用者前面說過的話你都記得，如果使用者接著問「這款茶的介紹」「為什麼推薦這款」之類的問題，直接針對你剛剛推薦的那一款回答，不要反問使用者是指哪一款。
 【重要規範】絕對不能使用「燃脂」「排油」「減肥」「瘦身」「代謝」「消脂」等暗示醫療或減重功效的字眼，即使使用者主動問也一樣。只能描述風味與情境上的舒適感（例如餐後清爽），並清楚說明茶飲不具醫療或減重功效，不要用任何轉折語氣暗示它「還是有幫助」。
@@ -3035,7 +3047,8 @@ ${dbText}
     const contents = toGeminiContents(companionHistory);
     const raw = await callGemini(systemPrompt, contents);
     // 把 AI 附在最後的【建議】那行拆出來當按鈕；泡泡裡只顯示正文
-    const [reply, suggestions] = splitSuggest(plainReply(noEmoji(raw)));
+    const [full, suggestions] = splitSuggest(plainReply(noEmoji(raw)));
+    const reply = capReply(full, 100);
     const voice = await voicePrepare('companion', reply);   // 語音提問：先備好聲音，文字和聲音同時開始
     await removeTyping('companion-log');
     const bubble = addBubble('companion-log', 'bot', '');
