@@ -684,6 +684,22 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
 .fx-item b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; font-variant-numeric: tabular-nums; }
 .fx-dot { width: 8px; height: 8px; border-radius: 9999px; background: var(--c); flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) { .fx-seg i, .fx-item { transition: none; } }
+
+/* ===== 沖泡過程動畫（2026-10-07，測試版）=====
+   參考 prompt-motion.com 的調酒配方動畫：配料依配方比例落進茶包 → 茶包放進杯子 → 注入熱水 → 浸泡出茶色 → 冒熱氣。
+   全部用 Web Animations API 排時間軸（brewDemoPlay），只動 transform / opacity */
+.brew-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px 6px 10px; border-radius: 9999px; font-size: 12px; font-weight: 700; border: 1px solid var(--c); color: var(--c); background: rgba(255,255,255,.04); }
+.brew-btn svg.play { width: 14px; height: 14px; }
+.brew-stage { position: relative; margin-bottom: 14px; border-radius: 14px; overflow: hidden; background: radial-gradient(120% 90% at 50% 100%, rgba(255,255,255,.06), rgba(0,0,0,.18)); border: 1px solid rgba(255,255,255,.08); }
+.brew-stage svg.brew-svg { display: block; width: 100%; height: auto; }
+.brew-stage svg.brew-svg * { transform-box: fill-box; }
+.brew-stage .bd-o { transform-origin: center; }
+.brew-stage .bd-fill { transform-origin: 50% 100%; }
+.brew-stage .bd-stream { transform-origin: 50% 0; }
+.brew-stage .bd-hand { transform-origin: 50% 100%; }
+.brew-stage text { font-family: 'Noto Sans TC', system-ui, sans-serif; }
+.brew-cap { text-align: center; padding: 2px 12px 12px; min-height: 44px; }
+.brew-skip { position: absolute; bottom: 8px; right: 8px; font-size: 10px; color: rgba(255,255,255,.5); padding: 3px 9px; border: 1px solid rgba(255,255,255,.18); border-radius: 9999px; background: rgba(0,0,0,.2); }
 </style>
 
 </head>
@@ -1332,6 +1348,181 @@ function initFormulaBar(el, startAt) {
   io.observe(el);
 }
 
+// ---------- 沖泡過程動畫：茶款頁「飲用資訊」的「看沖泡過程」----------
+// 茶湯顏色（泡好後的茶色，跟茶款主色分開，比較像真的茶）
+const BREW_LIQUOR = { yanran: '#B5584E', qingying: '#C98A32', nuanyang: '#9A4A24' };
+// 佛手烏龍：半球形捲曲的烏龍茶粒
+function brewTeaBallSVG() {
+  return `<svg viewBox="0 0 24 24" width="13" height="13" x="-6.5" y="-6.5" overflow="visible">
+    <path d="M5 13.5c-.6-4.6 2.8-8.4 7.3-8.5 4.4-.1 7.6 3.3 7 7.6-.5 3.7-3.7 6.4-7.4 6.4-3.5 0-6.5-2.3-6.9-5.5z" fill="#4F6B3A"/>
+    <path d="M7.4 11.2c1.6-2.3 4.8-3.2 7.6-1.8M8.2 14.6c2.2 1 5.2.8 7.2-1.2" stroke="#2F4424" stroke-width="1" fill="none" stroke-linecap="round"/>
+    <path d="M8.4 8.2c1.3-1 2.9-1.4 4.4-1.3" stroke="rgba(255,255,255,.35)" stroke-width=".9" fill="none" stroke-linecap="round"/></svg>`;
+}
+function brewPieceSVG(name) {
+  if (/烏龍|茶/.test(name)) return brewTeaBallSVG();
+  const g = LAB_INGS.find(v => v.name === name);
+  if (!g) return `<circle r="4.5" fill="rgba(255,255,255,.6)"/>`;
+  return labBitSVG(g.id, g.color, 15).replace('<svg', '<svg x="-7.5" y="-7.5" overflow="visible"');
+}
+// 從「沖泡」那一行抓出水量、水溫、時間（抓不到就用一般沖法）
+function brewSteps(tea) {
+  const t = (tea.drinkInfo.find(r => r.label === '沖泡') || {}).text || '';
+  const ml = (t.match(/(\d+)\s*ml/i) || [])[1] || '300';
+  const temp = (t.match(/(\d+\s*[～~-]\s*\d+)\s*°C/) || [])[1] || '90～95';
+  const min = (t.match(/浸泡\s*([\d～~-]+)\s*分鐘/) || [])[1] || '3～5';
+  return { ml, temp: temp.replace(/\s/g, ''), min };
+}
+function brewDemoToggle(btn) {
+  const tea = TEA_DB.find(t => t.id === currentTeaId);
+  const box = btn.closest('.liquid-glass-dark').querySelector('.brew-box');
+  if (!tea || !box) return;
+  brewDemoPlay(box, tea);
+  btn.querySelector('.lbl').textContent = '再看一次';
+}
+let brewAnims = [];
+function brewDemoPlay(box, tea) {
+  brewAnims.forEach(a => { try { a.cancel(); } catch (e) {} });
+  brewAnims = [];
+  const parts = formulaParts(tea.formula);
+  const st = brewSteps(tea);
+  const liquor = BREW_LIQUOR[tea.id] || tea.color;
+  // 每種配料的顆數依比例（10% 一顆，至少一顆），由下往上堆在茶包裡
+  const pieces = []; let k = 0;
+  parts.forEach((p, gi) => {
+    for (let n = 0; n < Math.max(1, Math.round(p.pct / 10)); n++, k++) {
+      const row = Math.floor(k / 6), col = k % 6;
+      pieces.push({ gi, n, name: p.name, x: 137 + col * 9.2 + (row % 2) * 4.6, y: 95 - row * 9, r: (k * 67) % 360 - 180 });
+    }
+  });
+  const steam = [0, 1, 2].map(i => `<path class="bd-steam bd-o" d="M${146 + i * 14} 122c-6-8 6-12 0-20s6-12 0-20" stroke="rgba(255,255,255,.55)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0"/>`).join('');
+  box.innerHTML = `<div class="brew-stage">
+    <svg class="brew-svg" viewBox="0 0 320 250" role="img" aria-label="沖泡過程：${parts.map(p => p.name + ' ' + p.pct + '%').join('、')}放進茶包，加約 ${st.ml}ml、${st.temp}°C 熱水，浸泡 ${st.min} 分鐘">
+      <defs><clipPath id="bd-cup-in"><path d="M102 132 L110 236 Q111 240 116 240 L204 240 Q209 240 210 236 L218 132 Z"/></clipPath></defs>
+      <g class="bd-labels" font-size="11" fill="rgba(255,255,255,.85)">
+        ${parts.map((p, i) => `<g class="bd-lab" data-i="${i}" opacity="0"><circle cx="16" cy="${36 + i * 20}" r="3.5" fill="${tea.color + (i < FX_ALPHA.length ? FX_ALPHA[i] : '40')}"/><text x="25" y="${40 + i * 20}">${p.name}</text><text x="25" y="${40 + i * 20}" dx="${p.name.length * 11 + 4}" font-weight="700" fill="${tea.color}">${p.pct}%</text></g>`).join('')}
+      </g>
+      <g class="bd-cup bd-o" opacity="0">
+        <path d="M100 130 L108 236 Q109 242 116 242 L204 242 Q211 242 212 236 L220 130" stroke="rgba(255,255,255,.55)" stroke-width="2" fill="rgba(255,255,255,.04)" stroke-linejoin="round"/>
+        <path d="M216 152 q24 2 22 24 q-2 20 -26 20" stroke="rgba(255,255,255,.45)" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </g>
+      <g class="bd-bag">
+        <path d="M160 52 L160 34 L112 20" stroke="rgba(255,255,255,.55)" stroke-width="1" fill="none" class="bd-string" opacity="0"/>
+        <rect class="bd-string" x="98" y="12" width="16" height="12" rx="2" fill="${tea.color}" opacity="0"/>
+        <path class="bd-bagback" d="M130 52 L190 52 L194 100 Q194 104 190 104 L130 104 Q126 104 126 100 Z" fill="rgba(255,248,230,.10)" opacity="0"/>
+        <g class="bd-pieces">${pieces.map((q, i) => `<g class="bd-pc" data-i="${i}" transform="translate(${q.x} ${q.y})"><g class="bd-fall" opacity="0"><g transform="rotate(${q.r})">${brewPieceSVG(q.name)}</g></g></g>`).join('')}</g>
+        <path class="bd-bagline" d="M130 52 L190 52 L194 100 Q194 104 190 104 L130 104 Q126 104 126 100 Z" stroke="rgba(255,248,230,.6)" stroke-width="1.3" fill="none" stroke-dasharray="2 2.5" opacity="0"/>
+        <path class="bd-seal" d="M128 54 L192 54" stroke="rgba(255,248,230,.8)" stroke-width="3" stroke-linecap="round" opacity="0"/>
+      </g>
+      <g clip-path="url(#bd-cup-in)">
+        <rect class="bd-water bd-fill" x="100" y="140" width="120" height="102" fill="rgba(255,240,205,.16)"/>
+        <ellipse class="bd-cloud bd-o" cx="160" cy="200" rx="46" ry="30" fill="${liquor}" opacity="0"/>
+        <rect class="bd-tea bd-fill" x="100" y="140" width="120" height="102" fill="${liquor}" opacity="0"/>
+        <rect class="bd-shine" x="100" y="140" width="120" height="2" fill="rgba(255,255,255,.35)" opacity="0"/>
+      </g>
+      <ellipse class="bd-ripple bd-o" cx="160" cy="140" rx="26" ry="4" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="1.2" opacity="0"/>
+      <g class="bd-kettle bd-o" opacity="0">
+        <path d="M222 26 q20 -8 40 0 l4 32 q-24 10 -48 0 z" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.5)" stroke-width="1.6"/>
+        <path d="M262 32 q14 2 12 14 q-2 8 -10 8" stroke="rgba(255,255,255,.45)" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <path d="M221 38 L202 52 L197 53" stroke="rgba(255,255,255,.5)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <rect class="bd-stream" x="194" y="54" width="4" height="88" rx="2" fill="rgba(255,245,215,.7)" opacity="0"/>
+      <g class="bd-wl" opacity="0" font-size="11" fill="rgba(255,255,255,.85)" text-anchor="end">
+        <text x="312" y="96">約 ${st.ml}ml</text><text x="312" y="112" font-weight="700" fill="${tea.color}">${st.temp}°C 熱水</text>
+      </g>
+      <g class="bd-clock" opacity="0">
+        <circle cx="40" cy="206" r="15" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.6"/>
+        <rect class="bd-hand" x="39" y="194" width="2" height="12" rx="1" fill="${tea.color}"/>
+        <circle cx="40" cy="206" r="1.8" fill="${tea.color}"/>
+        <text x="40" y="237" font-size="11" text-anchor="middle" fill="rgba(255,255,255,.85)">浸泡 ${st.min} 分鐘</text>
+      </g>
+      ${steam}
+    </svg>
+    <button type="button" class="brew-skip btn-bounce">略過</button>
+    <div class="brew-cap"><div class="bd-step text-xs text-white/70"></div></div>
+  </div>`;
+
+  const svg = box.querySelector('svg');
+  const q = (sel) => [...svg.querySelectorAll(sel)];
+  const cap = box.querySelector('.bd-step');
+  const add = (el, kf, o) => { const a = el.animate(kf, Object.assign({ fill: 'both', easing: 'cubic-bezier(.3,.8,.3,1)' }, o)); brewAnims.push(a); return a; };
+  const fadeIn = (el, delay, dur = 400) => add(el, [{ opacity: 0 }, { opacity: el.dataset.op || 1 }], { delay, duration: dur });
+  const steps = [];   // 字幕：[開始時間, 文字]
+  const say = (t, text) => steps.push([t, text]);
+
+  // 1. 杯子、茶包
+  add(q('.bd-cup')[0], [{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }], { duration: 500 });
+  [q('.bd-bagback')[0], q('.bd-bagline')[0]].forEach(el => fadeIn(el, 250, 500));
+  say(0, '一包「' + tea.name + '」裡有什麼？');
+  // 2. 配料依序落進茶包（每種一個節拍，標籤同時出現）
+  const T1 = 800, STEP = 650;
+  parts.forEach((p, gi) => {
+    const t = T1 + gi * STEP;
+    add(svg.querySelector(`.bd-lab[data-i="${gi}"]`), [{ opacity: 0, transform: 'translateX(-10px)' }, { opacity: 1, transform: 'none' }], { delay: t, duration: 380 });
+    say(t, `${p.name} ${p.pct}%`);
+    pieces.forEach((pc, i) => {
+      if (pc.gi !== gi) return;
+      const el = svg.querySelector(`.bd-pc[data-i="${i}"] .bd-fall`);
+      add(el, [
+        { opacity: 0, transform: `translateY(${-pc.y - 10}px) rotate(-120deg)` },
+        { opacity: 1, offset: .15 },
+        { transform: 'translateY(0) rotate(0)', offset: .8, easing: 'ease-out' },
+        { transform: 'translateY(-3px)', offset: .9 },
+        { opacity: 1, transform: 'none' }
+      ], { delay: t + pc.n * 90, duration: 620, easing: 'cubic-bezier(.55,0,.8,.4)' });
+    });
+  });
+  // 3. 封口、掛上棉線與吊牌，放進杯子
+  const Tseal = T1 + parts.length * STEP + 250;
+  fadeIn(q('.bd-seal')[0], Tseal, 300);
+  q('.bd-string').forEach(el => fadeIn(el, Tseal + 150, 350));
+  say(Tseal, '封成一包茶包');
+  const Tdrop = Tseal + 700;
+  add(svg.querySelector('.bd-bag'), [{ transform: 'none' }, { transform: 'translateY(118px)' }], { delay: Tdrop, duration: 850, easing: 'cubic-bezier(.5,0,.3,1)' });
+  say(Tdrop, '放進杯子');
+  // 4. 注入熱水
+  const Tpour = Tdrop + 1000;
+  add(q('.bd-kettle')[0], [{ opacity: 0, transform: 'translate(16px,-8px)' }, { opacity: 1, transform: 'none' }], { delay: Tpour, duration: 450 });
+  add(q('.bd-stream')[0], [{ opacity: 0, transform: 'scaleY(0)' }, { opacity: 1, transform: 'scaleY(1)' }], { delay: Tpour + 350, duration: 280, easing: 'ease-in' });
+  add(q('.bd-water')[0], [{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { delay: Tpour + 500, duration: 1700, easing: 'cubic-bezier(.3,.1,.4,1)' });
+  add(q('.bd-shine')[0], [{ opacity: 0, transform: 'translateY(100px)' }, { opacity: 1, transform: 'none' }], { delay: Tpour + 500, duration: 1700, easing: 'cubic-bezier(.3,.1,.4,1)' });
+  fadeIn(q('.bd-wl')[0], Tpour + 400);
+  say(Tpour + 300, `加入約 ${st.ml}ml、${st.temp}°C 熱水`);
+  add(q('.bd-stream')[0], [{ opacity: 1 }, { opacity: 0 }], { delay: Tpour + 2200, duration: 250, fill: 'forwards' });
+  add(q('.bd-kettle')[0], [{ opacity: 1 }, { opacity: 0 }], { delay: Tpour + 2350, duration: 350, fill: 'forwards' });
+  add(q('.bd-ripple')[0], [{ opacity: 0, transform: 'scale(.4)' }, { opacity: .8, offset: .3 }, { opacity: 0, transform: 'scale(1.3)' }], { delay: Tpour + 2150, duration: 800 });
+  // 5. 浸泡：茶色從茶包慢慢散開，計時指針轉兩圈
+  const Tsteep = Tpour + 2400;
+  fadeIn(q('.bd-clock')[0], Tsteep, 350);
+  add(q('.bd-hand')[0], [{ transform: 'rotate(0)' }, { transform: 'rotate(720deg)' }], { delay: Tsteep, duration: 2200, easing: 'linear' });
+  add(q('.bd-cloud')[0], [{ opacity: 0, transform: 'scale(.3)' }, { opacity: .55, offset: .5 }, { opacity: 0, transform: 'scale(1.6)' }], { delay: Tsteep, duration: 1800, easing: 'ease-out' });
+  add(q('.bd-tea')[0], [{ opacity: 0 }, { opacity: .72 }], { delay: Tsteep + 300, duration: 2000, easing: 'ease-in-out' });
+  say(Tsteep, `浸泡 ${st.min} 分鐘，茶色慢慢釋放`);
+  // 6. 冒熱氣、完成
+  const Tdone = Tsteep + 2300;
+  q('.bd-steam').forEach((el, i) => add(el, [
+    { opacity: 0, transform: 'translateY(6px)' }, { opacity: .7, offset: .4 }, { opacity: 0, transform: 'translateY(-16px)' }
+  ], { delay: Tdone + i * 350, duration: 1800, iterations: 3, easing: 'ease-in-out', fill: 'backwards' }));
+  say(Tdone, `<b style="color:${tea.color}">${tea.name}</b> 沖好了，慢慢喝`);
+
+  // 字幕跟著時間軸換
+  const capTimers = steps.map(([t, text]) => setTimeout(() => {
+    if (!cap.isConnected) return;
+    cap.innerHTML = text;
+    if (!REDUCE_MOTION) cap.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: 'ease-out' });
+  }, REDUCE_MOTION ? 0 : t));
+  const skip = box.querySelector('.brew-skip');
+  const finish = () => {
+    capTimers.forEach(clearTimeout);
+    brewAnims.forEach(a => { try { a.finish(); } catch (e) {} });
+    cap.innerHTML = steps[steps.length - 1][1];
+    skip.remove();
+  };
+  skip.onclick = finish;
+  // 減少動態效果：直接顯示泡好的畫面與完整步驟
+  if (REDUCE_MOTION) { finish(); cap.innerHTML = steps.map(s => s[1].replace(/<[^>]+>/g, '')).join(' → '); }
+  else setTimeout(() => skip.isConnected && skip.remove(), Tdone + 400);
+}
+
 // 三款茶的線條圖示（跟 AI 茶伴的茶壺同一種畫法）：嫣然＝玫瑰、輕盈＝柑橘切片、暖陽＝日出
 function teaIconSVG(id, color, cls) {
   const f = color + '40';
@@ -1898,7 +2089,11 @@ function openProduct(teaId, fromHistory) {
       <p class="text-xs text-white/70 leading-relaxed">${fadeText(tea.scenario, D(3) + 150)}</p>
     </div>
     <div class="liquid-glass-dark rounded-2xl p-5 border border-white/10 fade-in-block" style="animation-delay:${D(4)}ms">
-      <h3 class="font-bold text-sm mb-3" style="color:${tea.color}"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-pot"/></svg></span>飲用資訊</h3>
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <h3 class="font-bold text-sm" style="color:${tea.color}"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-pot"/></svg></span>飲用資訊</h3>
+        <button type="button" class="brew-btn btn-bounce" style="--c:${tea.color}" onclick="brewDemoToggle(this)"><svg class="play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" fill="currentColor" opacity=".35" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg><span class="lbl">看沖泡過程</span></button>
+      </div>
+      <div class="brew-box"></div>
       <div class="space-y-2">${tea.drinkInfo.map((r, i) => `
         <div class="flex gap-3 text-xs fade-in-block" style="animation-delay:${D(4) + 150 + i * 120}ms">
           <span class="font-bold flex-shrink-0 w-12" style="color:${tea.color}">${r.label}</span>
