@@ -657,6 +657,33 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
 /* 拼回期間先藏住 360° 茶罐（剪影、預覽圖、畫布），拼好後同一畫面直接接手 */
 .t360-wrap.tsg-hold .tin360 { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .tstage-word span { transition: none; transform: none; } }
+
+/* ===== 茶款頁標語動態字（2026-10-07，測試版）=====
+   標語一個字一個字由下往上浮現，最後一條茶款色細線由左往右畫出；只動 transform / opacity。
+   按返回回到茶款頁、減少動態效果時直接顯示完整標語 */
+.slogan-k { display: inline-block; position: relative; padding-bottom: .35em; }
+.slogan-k .sk { display: inline-block; opacity: 0; transform: translateY(.55em) rotate(4deg); animation: skRise .55s cubic-bezier(.2,.9,.25,1.15) var(--d) forwards; }
+.slogan-k .sk-line { position: absolute; left: 8%; right: 8%; bottom: 0; height: 1px; opacity: 0; transform: scaleX(0); transform-origin: left center; background: linear-gradient(90deg, transparent, var(--c), transparent); animation: skLine .9s cubic-bezier(.4,0,.2,1) var(--d) forwards; }
+@keyframes skRise { 0% { opacity: 0; transform: translateY(.55em) rotate(4deg); } 100% { opacity: 1; transform: none; } }
+@keyframes skLine { 0% { opacity: 0; transform: scaleX(0); } 30% { opacity: 1; } 100% { opacity: .5; transform: scaleX(1); } }
+.view.back-nav .slogan-k .sk, .view.back-nav .slogan-k .sk-line { animation-duration: .01s; animation-delay: 0s; }
+@media (prefers-reduced-motion: reduce) {
+  .slogan-k .sk { animation: none; opacity: 1; transform: none; }
+  .slogan-k .sk-line { animation: none; opacity: .5; transform: none; }
+}
+
+/* ===== 配方比例動畫（2026-10-07，測試版）=====
+   配方特色卡片上方的比例條：捲到畫面內時各段依序由左往右長出（scaleX），下方百分比同步從 0 數上來 */
+.fx-bar { display: flex; gap: 2px; height: 10px; border-radius: 9999px; overflow: hidden; background: rgba(255,255,255,.06); }
+.fx-seg { height: 100%; }
+.fx-seg i { display: block; height: 100%; background: var(--c); transform: scaleX(0); transform-origin: left center; transition: transform .6s cubic-bezier(.3,.85,.25,1) var(--d); }
+.fx.run .fx-seg i { transform: scaleX(1); }
+.fx-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin-top: 10px; }
+.fx-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: rgba(255,255,255,.7); opacity: .35; transition: opacity .4s ease var(--d); }
+.fx.run .fx-item { opacity: 1; }
+.fx-item b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fx-dot { width: 8px; height: 8px; border-radius: 9999px; background: var(--c); flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) { .fx-seg i, .fx-item { transition: none; } }
 </style>
 
 </head>
@@ -1255,6 +1282,56 @@ function fadeText(text, baseDelayMs, stepMs = 110) {
     .join('');
 }
 
+// 標語動態字：每個字包成 .sk 依序浮現，最後畫出底線（見 CSS「茶款頁標語動態字」）
+function sloganKinetic(text, color, baseDelayMs, stepMs = 70) {
+  const chars = [...text];
+  const spans = chars.map((c, i) => `<span class="sk" style="--d:${baseDelayMs + i * stepMs}ms">${c}</span>`).join('');
+  return `<span class="slogan-k" aria-label="${text}"><span aria-hidden="true">${spans}</span><span class="sk-line" style="--c:${color}; --d:${baseDelayMs + chars.length * stepMs}ms"></span></span>`;
+}
+
+// 配方比例條：從 tea.formula（「佛手烏龍 70% ・ 玫瑰 10% …」）解析出各茶材與比例
+const FX_ALPHA = ['', 'B3', '80', '59'];   // 茶底用茶款色，其餘茶材依序淡一點
+function formulaParts(formula) {
+  return [...formula.matchAll(/([^・\s]+)\s*(\d+)%/g)].map(m => ({ name: m[1], pct: +m[2] }));
+}
+function formulaBarHTML(tea) {
+  const parts = formulaParts(tea.formula);
+  if (!parts.length) return '';
+  const c = (i) => tea.color + (i < FX_ALPHA.length ? FX_ALPHA[i] : '40');
+  return `<div class="fx mb-4" role="img" aria-label="配方比例：${tea.formula}">
+    <div class="fx-bar">${parts.map((p, i) => `<span class="fx-seg" style="width:${p.pct}%"><i style="--c:${c(i)}; --d:${i * 380}ms"></i></span>`).join('')}</div>
+    <div class="fx-legend" aria-hidden="true">${parts.map((p, i) => `<span class="fx-item" style="--d:${i * 380}ms"><span class="fx-dot" style="--c:${c(i)}"></span>${p.name}<b data-pct="${p.pct}">0%</b></span>`).join('')}</div>
+  </div>`;
+}
+// 捲到畫面內才播放；剛進茶款頁時等所在卡片淡入後再開始（startAt 為最早開始時間）
+function initFormulaBar(el, startAt) {
+  if (!el) return;
+  const nums = [...el.querySelectorAll('b[data-pct]')];
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const run = () => {
+    if (!el.isConnected || el.classList.contains('run')) return;
+    el.classList.add('run');
+    if (reduce) { nums.forEach(b => b.textContent = b.dataset.pct + '%'); return; }
+    const t0 = performance.now();
+    const tick = (t) => {
+      let busy = false;
+      nums.forEach((b, i) => {
+        const k = Math.min(1, Math.max(0, (t - t0 - i * 380) / 600));
+        if (k < 1) busy = true;
+        b.textContent = Math.round(b.dataset.pct * (1 - Math.pow(1 - k, 3))) + '%';
+      });
+      if (busy && el.isConnected) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  const go = () => setTimeout(run, Math.max(0, startAt - performance.now()));
+  if (typeof IntersectionObserver === 'undefined') return go();
+  const io = new IntersectionObserver((es) => {
+    if (es.some(e => e.isIntersecting)) { io.disconnect(); go(); }
+  }, { threshold: 0.6 });
+  io.observe(el);
+}
+
 // 三款茶的線條圖示（跟 AI 茶伴的茶壺同一種畫法）：嫣然＝玫瑰、輕盈＝柑橘切片、暖陽＝日出
 function teaIconSVG(id, color, cls) {
   const f = color + '40';
@@ -1793,7 +1870,7 @@ function openProduct(teaId, fromHistory) {
     <div class="liquid-glass rounded-[2rem] p-6 lg:p-8 text-center fade-in-block" style="animation-delay:${D(0)}ms">
       <span class="inline-block text-[11px] font-mono font-bold px-2.5 py-1 rounded" style="background:${tea.color}; color:#12261A">${tea.series}</span>
       <h2 class="font-serif text-3xl lg:text-4xl font-bold mt-4 flex items-center justify-center gap-2.5">${teaIconSVG(tea.id, tea.color, "w-11 h-11 lg:w-12 lg:h-12 flex-shrink-0")}${tea.name}</h2>
-      <p class="font-serif text-base lg:text-lg mt-3" style="color:${tea.color}">「${tea.slogan}」</p>
+      <p class="font-serif text-base lg:text-lg mt-3" style="color:${tea.color}">${fromHistory ? `「${tea.slogan}」` : sloganKinetic(`「${tea.slogan}」`, tea.color, D(0) + 350)}</p>
       <p class="text-sm text-white/55 mt-2">${tea.formula}</p>
       ${tinStageHTML(tea)}
     </div>
@@ -1808,6 +1885,7 @@ function openProduct(teaId, fromHistory) {
     </div>
     <div class="liquid-glass-dark rounded-2xl p-5 border border-white/10 fade-in-block" style="animation-delay:${D(2)}ms">
       <h3 class="font-bold text-sm mb-3" style="color:${tea.color}"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-leaf"/></svg></span>配方特色</h3>
+      ${formulaBarHTML(tea)}
       <div class="grid grid-cols-3 gap-2">${tea.features.map((f, i) => `
         <div class="liquid-glass-dark rounded-xl p-3 text-center fade-in-block" style="animation-delay:${D(2) + 150 + i * 160}ms; border:1px solid ${tea.color}40">
           <div class="h-7 flex items-center justify-center">${featureIcon(f.icon, tea.color)}</div>
@@ -1857,6 +1935,7 @@ function openProduct(teaId, fromHistory) {
   // 茶款頁顯示後才初始化茶罐，確保量得到實際尺寸
   initTinStage(box.querySelector('.tstage')); // 要在 initTin360 之前：先設定「進場轉一圈等橫條拼回」
   initTin360(box.querySelector('.tin360'));
+  initFormulaBar(box.querySelector('.fx'), performance.now() + (fromHistory ? 300 : D(2) + 450));
 }
 
 /* 快速提問按鈕：題庫比顯示數量多，每次問完就從題庫裡重新抽一批不重複的，
