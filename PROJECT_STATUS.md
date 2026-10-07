@@ -189,6 +189,19 @@ summary_large_image
 * token：`890b62efb7ae4901b90310d63291600d`
 * `test/` 若要分開統計，需同樣加入此 script
 
+## Tailwind 樣式檔（2026-10-07，目前只在測試版 `test/`）
+
+* 不再用 `cdn.tailwindcss.com`（訪客手機要先下載約 366 KB 的程式再即時編譯樣式，拖慢首頁載入）。改成事先產生好的 `test/tailwind.css`（約 20 KB），在 `<head>` 自訂 `<style>` 後面用 `<link>` 載入（跟以前 CDN 版的覆蓋順序一樣）
+* 設定在 `tools/tailwind/tailwind.config.js`（tea 色票、字型，跟以前 `tailwind.config` 相同）
+* **改了 HTML 裡的 class（尤其用到新的 Tailwind 寫法）後，要執行 `bash tools/tailwind/build.sh` 重新產生，並更新 `<link>` 的 `?v=`**。class 名稱必須完整寫在檔案裡（不能用字串拼接，例如 `'text-' + color`），否則不會被產生
+* 搬到正式版時：`index.html` 同樣拿掉 CDN、加上 `<link>`，再執行 build.sh（偵測到正式版有 `<link>` 就會一起產生根目錄的 `tailwind.css`）
+* 換前換後比對：5 個頁面（首頁、品牌故事、AI 茶伴、體驗館、茶款頁）在手機與電腦寬度截圖逐點相同
+
+## 載入速度（LCP）備註（2026-10-07）
+
+* 首頁的 LCP 元素是主視覺動畫裡的茶名文字（`#hero-anim`），它要等迎賓動畫（約 2.6 秒）結束後才出現，所以首頁 LCP 天生約 4 秒以上，這是設計上的動畫順序，不代表網站卡住
+* 重新整理時停在品牌故事頁，LCP 是品牌形象片封面：`<head>` 有一小段程式先預先下載封面（版本號要跟 `BRAND_FILM_V` 一致）
+
 ---
 
 # 5. 網站整體結構
@@ -412,7 +425,7 @@ AI 問答提供動態建議按鈕。
 * 送出：使用者泡泡一律從輸入列右下角（送出鍵右下角）縮小起飛，飛進聊天室放大落地（`flyMessage()` → `flyGhost()`）。先放好隱藏的真泡泡量位置，再用替身以 Web Animations 的 transform 飛過去；以泡泡右下角為基準點，約 0.56 秒，結尾輕微上揚回落。起飛點由 `msgSource()` 在清空輸入列前量好；點建議按鈕也從同一點起飛
 * 送出鍵先按壓再回彈、紙飛機圖示往右上飛出再回來（`flySend()`，只在按送出鍵／Enter 時播，點建議按鈕不播）
 * 等待回答期間不能重複送出（`chatBusy`）
-* 注意：Tailwind 是 CDN 版，JS 動態產生的 class 要等第一次出現在畫面上才非同步生成。對話泡泡的 class 已在 `<main>` 前放一個隱藏的預熱 div，且 `addBubble()` 的對齊（justify-content）與 max-width 直接寫 inline；`flyMessage()` 等兩個畫格才量位置。之前第一則訊息飛到 AI 那側就是這個原因，新增動態 class 時也要注意
+* 注意：（正式版）Tailwind 是 CDN 版，JS 動態產生的 class 要等第一次出現在畫面上才非同步生成；測試版已改成事先產生的樣式檔，見「Tailwind 樣式檔」。對話泡泡的 class 已在 `<main>` 前放一個隱藏的預熱 div，且 `addBubble()` 的對齊（justify-content）與 max-width 直接寫 inline；`flyMessage()` 等兩個畫格才量位置。之前第一則訊息飛到 AI 那側就是這個原因，新增動態 class 時也要注意
 * 飛行結束才出現「思考中」；替身有保險收尾，不會卡住流程
 * 思考中：`addTyping()` 顯示茶葉圖示輕晃＋狀態文字輪播（`THINK_TEXTS`，每 1.8 秒換一句）＋三點跳動；`removeTyping()` 先淡出再移除（回傳 Promise）
 * 回答：AI 泡泡從左上浮出（`.msg-in-bot`），`typeIntoBubble()` 逐字淡入（每 34ms 出 1～2 字）並帶跳動圓點游標，結束後 span 合回純文字
