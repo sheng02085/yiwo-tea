@@ -1109,7 +1109,8 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
         <div class="p-4 border-b border-white/10 flex items-center gap-2">
           <span class="text-emerald-300 text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-pot"/></svg></span>
           <span class="text-sm font-bold">AI 茶伴</span>
-          <button type="button" class="vm-entry ml-auto btn-bounce" onclick="vmOpen('companion')" aria-label="開啟語音模式"><span class="vm-dot" aria-hidden="true"></span>語音模式</button>
+          <button type="button" onclick="companionIntro()" class="ml-auto mr-1 text-[11px] text-white/45 underline underline-offset-2 btn-bounce">使用說明</button>
+          <button type="button" class="vm-entry btn-bounce" onclick="vmOpen('companion')" aria-label="開啟語音模式"><span class="vm-dot" aria-hidden="true"></span>語音模式</button>
         </div>
         <div id="companion-log" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs" style="max-height:min(55vh, 520px)"></div>
         <div id="companion-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
@@ -2020,6 +2021,12 @@ function showView(name, fromHistory, restoreY) {
   if (name === 'companion' && document.getElementById('companion-log').children.length === 0) {
     startCompanion();
   }
+  // 第一次打開 AI 茶伴：跳出使用說明（從調茶結果直接過來聊那杯茶時先不跳，下次再說明）
+  if (name === 'companion' && !labChatPending) {
+    let seen = false;
+    try { seen = localStorage.getItem('yw-ai-intro') === '1'; } catch (e) {}
+    if (!seen) setTimeout(() => { if (document.getElementById('view-companion').classList.contains('active')) companionIntro(); }, 450);
+  }
 }
 
 function addBubble(logId, role, text, iconHTML, noAnim) {
@@ -2914,8 +2921,110 @@ async function askProduct(presetText, srcEl) {
 let companionStage = 0;
 let companionHistory = [];
 
-function startCompanion() {
-  addBubble('companion-log', 'bot', '嗨，今天想喝一杯什麼樣的茶呢？可以跟我說說你今天的狀態或心情', yiIcon('leaf', '#6EE7B7'));
+/* ---------- 節氣茶語：開場白依今天的日期、節氣、時段由 AI 寫 ----------
+   AI 不知道今天幾號：日期、節氣、時段都由網頁用裝置時間算好再交給 AI。
+   節氣用固定日期表（每年差不到一天，所以說「前後」）；不抓天氣，避免跳出定位權限 */
+const SOLAR_TERMS = [[1,5,'小寒'],[1,20,'大寒'],[2,4,'立春'],[2,19,'雨水'],[3,5,'驚蟄'],[3,20,'春分'],[4,5,'清明'],[4,20,'穀雨'],
+  [5,5,'立夏'],[5,21,'小滿'],[6,5,'芒種'],[6,21,'夏至'],[7,7,'小暑'],[7,22,'大暑'],[8,7,'立秋'],[8,23,'處暑'],
+  [9,7,'白露'],[9,23,'秋分'],[10,8,'寒露'],[10,23,'霜降'],[11,7,'立冬'],[11,22,'小雪'],[12,7,'大雪'],[12,21,'冬至']];
+function teaMoment(d) {
+  d = d || new Date();
+  const md = (d.getMonth() + 1) * 100 + d.getDate();
+  let i = SOLAR_TERMS.length - 1;   // 1/5 小寒以前還是去年的冬至
+  SOLAR_TERMS.forEach((t, k) => { if (t[0] * 100 + t[1] <= md) i = k; });
+  const nx = SOLAR_TERMS[(i + 1) % SOLAR_TERMS.length];
+  const nxDate = new Date(d.getFullYear() + (i === SOLAR_TERMS.length - 1 && d.getMonth() === 11 ? 1 : 0), nx[0] - 1, nx[1]);
+  const daysToNext = Math.round((nxDate - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5);
+  const h = d.getHours();
+  const slot = h >= 5 && h < 11 ? '早上' : h < 14 && h >= 11 ? '中午' : h >= 14 && h < 18 ? '下午' : h >= 18 && h < 23 ? '晚上' : '深夜';
+  const term = SOLAR_TERMS[i][2];
+  return { date: `${d.getMonth() + 1}月${d.getDate()}日`, term, next: nx[2], daysToNext, slot,
+    text: `今天是${d.getMonth() + 1}月${d.getDate()}日，正值「${term}」節氣${daysToNext <= 3 ? `，再過${daysToNext}天就是「${nx[2]}」` : ''}，現在是${slot}` };
+}
+const GREET_ASK = '今天想喝一杯什麼樣的茶呢？可以跟我說說你今天的狀態或心情';
+const GREET_BAN = /空氣|涼意|靜謐|微風|月色|養生|進補|潤燥|潤肺|補氣|補血|排毒|祛濕|去濕|降火|退火|驅寒|暖身|療|健康|功效|保健|下雨|晴|颱風|氣溫|度C|°/;
+async function companionGreeting() {
+  const tm = teaMoment();
+  const key = 'yw-greet2-' + tm.date + tm.slot;   // 2：開場白規則改過，舊的快取不要再用
+  try { const c = sessionStorage.getItem(key); if (c) return c; } catch (e) {}
+  const fallback = `${tm.slot === '深夜' ? '夜深了' : tm.slot + '好'}，${tm.term}時節，${GREET_ASK}`;
+  const prompt = `你是「一握茶研所」的 AI 茶伴，正在跟剛打開對話的客人打招呼。
+${tm.text}。
+請寫一段開場白：
+- 開頭只用一句簡短的話（20 字以內）帶到現在的時段和節氣，例如「晚上好，寒露將至。」
+- 不要寫景色或氛圍的描寫句（例如空氣、涼意、靜謐、微風、月色），也不要多加感想。
+- 你不知道今天實際的天氣，不要描述天氣、氣溫或下不下雨。
+- 不要推薦任何茶款，也不要提任何功效、養生、進補、保健之類的說法。
+- 最後一句固定是：「${GREET_ASK}」
+- 全部 50 字以內，純文字，不用 Markdown，不用 emoji。
+【語言規範】只能使用台灣繁體中文，絕對不可以出現任何簡體字。`;
+  try {
+    const raw = await Promise.race([
+      callGemini(prompt, [{ role: 'user', parts: [{ text: '請打招呼' }] }]),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('greet timeout')), 8000))
+    ]);
+    let t = plainReply(noEmoji(raw)).replace(/\s*\n\s*/g, '').trim();
+    if (!t || t.length > 90 || GREET_BAN.test(t.replace(GREET_ASK, ''))) return fallback;
+    if (!t.includes('今天想喝')) t += GREET_ASK;
+    try { sessionStorage.setItem(key, t); } catch (e) {}
+    return t;
+  } catch (e) { console.warn('[greet]', e); return fallback; }
+}
+/* ---------- AI 茶伴使用說明：第一次打開時跳出，之後可按標題列的「使用說明」再看 ----------
+   跟體驗館的關卡介紹用同一個視窗（#lab-modal.ap）與動畫 */
+function companionIntro() {
+  try { localStorage.setItem('yw-ai-intro', '1'); } catch (e) {}
+  labModalClose(true);
+  const voice = document.documentElement.classList.contains('can-voice');
+  const rows = [
+    ['chat', '說說今天的狀態', '在下方輸入框打字，例如「下午有點累」「想喝點溫暖的」'],
+    ['tap', '點選建議', '不知道說什麼？點輸入框上方的建議按鈕就能接著聊'],
+    ...(voice ? [['mic', '用說的也可以', '按麥克風說話，或開啟右上角「語音模式」，茶伴會唸給你聽']] : []),
+    ['cup', '看推薦的茶', '回覆下方的按鈕，直接打開推薦茶款的介紹']
+  ];
+  const d = i => `--d:${(0.12 + i * 0.06).toFixed(2)}s`;
+  const m = document.createElement('div');
+  m.id = 'lab-modal';
+  m.className = 'ap fixed inset-0 z-[150] flex items-center justify-center p-5';
+  m.innerHTML = `
+    <div class="modal-bg absolute inset-0" onclick="labModalClose()"></div>
+    <div class="ap-beam" aria-hidden="true"></div>
+    <div class="modal-card relative w-full max-w-sm rounded-[2rem] p-6 pt-8 border border-tea-gold/40 shadow-2xl" style="background:linear-gradient(160deg,#1C3A27 0%,#2A3320 55%,#3A2E12 100%); max-height:calc(100dvh - 2.5rem); overflow-y:auto; overscroll-behavior:contain">
+      <span class="ap-corner tl" aria-hidden="true"></span><span class="ap-corner tr" aria-hidden="true"></span><span class="ap-corner bl" aria-hidden="true"></span><span class="ap-corner br" aria-hidden="true"></span>
+      <button onclick="labModalClose()" aria-label="關閉" class="absolute top-3 right-4 z-10 text-white/50 text-2xl leading-none">×</button>
+      <div class="ap-item text-center" style="${d(0)}">
+        <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold">HOW TO USE</div>
+        <div class="font-serif text-2xl font-bold mt-1">認識 AI 茶伴</div>
+        <p class="text-xs text-white/60 mt-2 leading-relaxed">跟我說說你今天的狀態或心情<br>我幫你從三款「一握」裡挑一杯</p>
+      </div>
+      <div class="space-y-3 mt-5">${rows.map((r, i) => `
+        <div class="ap-item flex items-start gap-3 rounded-2xl bg-black/20 border border-white/10 p-3" style="${d(i + 1)}">
+          <div class="w-10 h-10 flex-shrink-0 rounded-full border border-tea-gold/60 flex items-center justify-center text-tea-gold text-lg leading-none">
+            <svg class="yi" aria-hidden="true"><use href="#yi-${r[0]}"/></svg>
+          </div>
+          <div class="text-left">
+            <div class="text-sm font-bold text-tea-gold">${r[1]}</div>
+            <div class="text-[11px] text-white/65 leading-relaxed mt-0.5">${r[2]}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+      <p class="ap-item text-[10px] text-white/40 text-center leading-relaxed mt-4" style="${d(rows.length + 1)}">回覆由 AI 產生，僅供參考；茶飲不具醫療或保健功效</p>
+      <div class="ap-item text-center mt-4" style="${d(rows.length + 2)}">
+        <button onclick="labModalClose()" class="px-8 py-2.5 rounded-full text-sm font-bold bg-tea-gold text-tea-dark btn-bounce">開始聊天</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+async function startCompanion() {
+  if (labChatPending) { setTimeout(companionSendPending, 450); return; }   // 從調茶結果過來：不打招呼，直接聊那杯茶
+  chatBusy.companion = true;   // 開場白還沒出來前先不收訊息，不然問題會排在招呼語前面
+  addTyping('companion-log');
+  const text = await companionGreeting();
+  await removeTyping('companion-log');
+  const bubble = addBubble('companion-log', 'bot', '');
+  await typeIntoBubble('companion-log', bubble, text);
+  chatBusy.companion = false;
+  bubble.insertAdjacentHTML('beforeend', yiIcon('leaf', '#6EE7B7'));
   renderChips(['想放鬆一下', '最近外食比較多', '想喝點溫暖的']);
 }
 
@@ -2945,6 +3054,18 @@ function findMentionedTea(reply) {
   TEA_DB.forEach(t => { const i = Math.max(r.lastIndexOf(t.name), r.lastIndexOf(short(t))); if (i > at) { at = i; best = t; } });
   return best;
 }
+// AI 偶爾不照字數規定：超過上限就整句整句刪，保留推薦茶名的那一句（茶款按鈕靠它）
+function capReply(text, max) {
+  if (text.length <= max) return text;
+  const parts = text.match(/[^。！？]+[。！？]?/g) || [text];
+  const hasTea = x => /『[^』]+』/.test(x) || TEA_DB.some(t => x.includes(t.name) || x.includes(t.name.split('・').pop()));
+  const key = parts.reduce((k, x, i) => hasTea(x) ? i : k, -1);   // 最後一句提到茶名的
+  const keep = new Set(key >= 0 ? [key] : []);
+  let len = key >= 0 ? parts[key].length : 0;
+  parts.forEach((x, i) => { if (!keep.has(i) && len + x.length <= max) { keep.add(i); len += x.length; } });
+  const out = parts.filter((_, i) => keep.has(i)).join('').trim();
+  return out || text;
+}
 async function sendCompanion(srcEl) {
   const input = document.getElementById('companion-input');
   const text = input.value.trim();
@@ -2967,6 +3088,8 @@ ${dbText}
 【語言規範】一律使用臺灣繁體中文與臺灣慣用語回答，即使使用者用簡體字、其他語言或語音辨識出的錯字提問，也只能用繁體中文回答，絕對不能出現任何簡體字。
 請以專業、簡潔、像品茶師介紹茶葉的語氣回覆，格式參考：「今天的你可以試試『茶名』，用一句話說明為什麼適合、能帶來什麼感受。」
 只推薦清單裡的一款，茶名一定要寫完整（例如『一握・輕盈』），不要編造清單以外的茶。控制在 80 字以內，用純文字，不要使用 Markdown 符號，不要條列，不要使用任何 emoji 表情符號。
+如果使用者聊的是他在體驗館自己調的茶：整段回答最多 100 字（含標點），只寫兩句：第一句描述那杯茶的香氣、口感和適合喝的時刻（只講風味與感受），第二句點出清單裡最接近的一款『茶名』，不要再多加說明。
+現在的時間：${teaMoment().text}。需要時可以用幾個字點到時段或節氣，但不要寫景色或氛圍的描寫句（例如空氣、涼意、靜謐），不要描述實際天氣，也不要扯到養生進補。
 使用者前面說過的話你都記得，如果使用者接著問「這款茶的介紹」「為什麼推薦這款」之類的問題，直接針對你剛剛推薦的那一款回答，不要反問使用者是指哪一款。
 【重要規範】絕對不能使用「燃脂」「排油」「減肥」「瘦身」「代謝」「消脂」等暗示醫療或減重功效的字眼，即使使用者主動問也一樣。只能描述風味與情境上的舒適感（例如餐後清爽），並清楚說明茶飲不具醫療或減重功效，不要用任何轉折語氣暗示它「還是有幫助」。
 【輸出格式】回答結束後，另起一行，固定用這個格式列出 3 個使用者可能想接著說的話：
@@ -2977,7 +3100,8 @@ ${dbText}
     const contents = toGeminiContents(companionHistory);
     const raw = await callGemini(systemPrompt, contents);
     // 把 AI 附在最後的【建議】那行拆出來當按鈕；泡泡裡只顯示正文
-    const [reply, suggestions] = splitSuggest(plainReply(noEmoji(raw)));
+    const [full, suggestions] = splitSuggest(plainReply(noEmoji(raw)));
+    const reply = capReply(full, 100);
     const voice = await voicePrepare('companion', reply);   // 語音提問：先備好聲音，文字和聲音同時開始
     await removeTyping('companion-log');
     const bubble = addBubble('companion-log', 'bot', '');
@@ -3128,15 +3252,23 @@ function renderStamps(justGot) {
       <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold">CERTIFICATE</div>
       <div class="font-serif text-xl font-bold mt-1">一握體驗館・製茶證書</div>
       <p class="text-xs text-white/65 mt-2 leading-relaxed">${CERT_BODY.join('<br>')}</p>
+      <div id="cert-tea" class="mt-3"></div>
       <div class="text-[11px] text-white/40 mt-3">一握茶研所　${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}</div>
       <button onclick="shareCert()" class="mt-4 px-5 py-2 rounded-full text-xs font-bold bg-tea-gold text-tea-dark btn-bounce">儲存證書，分享給朋友吧！</button>
       <div id="cert-msg" class="text-[11px] text-white/50 mt-2 h-4"></div>
       <button onclick="stampReset()" class="text-[11px] text-white/40 underline mt-2">重新集章</button>
     </div>`;
+    const myTea = certMyTea();
+    if (myTea) {   // 茶名是使用者自己打的字：用 textContent 放，不經過 innerHTML
+      const box = document.getElementById('cert-tea');
+      box.innerHTML = `<div class="text-[10px] text-tea-gold/80">我調的茶</div><div class="font-serif text-lg font-bold text-tea-gold"></div><div class="text-[10px] text-white/45"></div>`;
+      box.children[1].textContent = `「${myTea.name}」`;
+      box.children[2].textContent = certTeaDetail(myTea);
+    }
   } else cert.innerHTML = '';
 }
 /* ---------- 製茶證書：用 canvas 畫成一張圖片，手機跳出分享選單（可存到相簿或傳 LINE），電腦直接下載 ---------- */
-let certFile = null;
+let certFile = null, certGen = 0;   // certGen：換茶名時會重畫，只留最後一次畫的那張
 function certSpaced(ctx, text, x, y, gap) {
   const w = [...text].reduce((s, c) => s + ctx.measureText(c).width + gap, -gap);
   let cx = x - w / 2;
@@ -3151,13 +3283,16 @@ function certIcon(ctx, svg, cx, cy, size, color) {
   ctx.restore();
 }
 async function buildCert() {
+  const gen = ++certGen;
   // 先把畫上去的每個字的字型都載好（Google Fonts 依字分檔，沒載到的字會用系統字型畫，canvas 不會再補畫）
   const d0 = new Date(), dateText = `一握茶研所　${d0.getFullYear()}/${d0.getMonth() + 1}/${d0.getDate()}`;
+  const myTea = certMyTea(), teaName = myTea ? `「${myTea.name}」` : '', teaDetail = myTea ? certTeaDetail(myTea) : '';
   try { await Promise.all([
     document.fonts.load('700 66px "Noto Serif TC"', '一握體驗館・製茶證書'),
     document.fonts.load('700 36px "Noto Sans TC"', STAMP_DEFS.map(x => x.name).join('')),
     document.fonts.load('500 30px "Noto Sans TC"', 'CERTIFICATE'),
-    document.fonts.load('400 38px "Noto Sans TC"', CERT_BODY.join('') + dateText + '把佛手的溫潤，留給忙碌生活裡的你')
+    document.fonts.load('400 38px "Noto Sans TC"', CERT_BODY.join('') + dateText + '把佛手的溫潤，留給忙碌生活裡的你' + '我調的茶' + teaDetail),
+    document.fonts.load('700 50px "Noto Serif TC"', teaName || '茶')
   ]); } catch (e) {}
   const W = 1080, H = 1350, GOLD = '#D4AF37';
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -3192,16 +3327,27 @@ async function buildCert() {
     ctx.fillStyle = GOLD; ctx.font = '700 36px "Noto Sans TC", sans-serif';
     ctx.fillText(d.name, x, 710);
   });
+  // 有調茶取名：內文往上收一點，中間多一塊「我調的茶」
+  const y0 = myTea ? 800 : 830, gap = myTea ? 55 : 60;
   ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.font = '400 38px "Noto Sans TC", sans-serif';
-  CERT_BODY.forEach((t, i) => ctx.fillText(t, W / 2, 830 + i * 60));
+  CERT_BODY.forEach((t, i) => ctx.fillText(t, W / 2, y0 + i * gap));
+  if (myTea) {
+    ctx.fillStyle = 'rgba(212,175,55,.85)'; ctx.font = '400 28px "Noto Sans TC", sans-serif';
+    ctx.fillText('我調的茶', W / 2, 990);
+    ctx.fillStyle = GOLD; ctx.font = '700 50px "Noto Serif TC", serif';
+    ctx.fillText(teaName, W / 2, 1048);
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.font = '400 28px "Noto Sans TC", sans-serif';
+    ctx.fillText(teaDetail, W / 2, 1102);
+  }
   ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = '400 32px "Noto Sans TC", sans-serif';
-  ctx.fillText(dateText, W / 2, 1070);
+  ctx.fillText(dateText, W / 2, myTea ? 1170 : 1070);
   ctx.fillStyle = 'rgba(212,175,55,.8)'; ctx.font = '400 28px "Noto Sans TC", sans-serif';
-  ctx.fillText('把佛手的溫潤，留給忙碌生活裡的你', W / 2, 1180);
+  ctx.fillText('把佛手的溫潤，留給忙碌生活裡的你', W / 2, myTea ? 1235 : 1180);
   const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
   if (!blob) throw new Error('toBlob failed');
-  certFile = new File([blob], '一握體驗館_製茶證書.png', { type: 'image/png' });
-  return certFile;
+  const file = new File([blob], '一握體驗館_製茶證書.png', { type: 'image/png' });
+  if (gen === certGen) certFile = file;
+  return file;
 }
 function certDownload(file) {
   const url = URL.createObjectURL(file);
@@ -3227,15 +3373,16 @@ async function shareCert() {
   certBusy = true;
   const msg = document.getElementById('cert-msg');
   try {
-    if (!certFile) { if (msg) msg.innerText = '證書產生中…'; await buildCert(); }
-    const data = { files: [certFile], title: '一握體驗館・製茶證書' };
+    let file = certFile;
+    if (!file) { if (msg) msg.innerText = '證書產生中…'; file = await buildCert(); }
+    const data = { files: [file], title: '一握體驗館・製茶證書' };
     if (navigator.canShare && navigator.canShare(data)) {
       try { await navigator.share(data); if (msg) msg.innerText = ''; return; }
       catch (e) { if (e.name === 'AbortError') { if (msg) msg.innerText = ''; return; } }
     }
     const phone = IN_APP_BROWSER || matchMedia('(pointer: coarse)').matches;
-    if (phone) { certShowImage(certFile); if (msg) msg.innerText = ''; return; }
-    certDownload(certFile);
+    if (phone) { certShowImage(file); if (msg) msg.innerText = ''; return; }
+    certDownload(file);
     if (msg) msg.innerText = '證書圖片已下載';
   } catch (e) {
     console.warn('[cert]', e);
@@ -3245,7 +3392,7 @@ async function shareCert() {
 
 function stampReset() {
   stamps = [];
-  try { sessionStorage.removeItem('yw-stamps'); sessionStorage.removeItem('yw-procstep'); } catch (e) {}
+  try { sessionStorage.removeItem('yw-stamps'); sessionStorage.removeItem('yw-procstep'); sessionStorage.removeItem('yw-mytea'); } catch (e) {}
   // 三關的進度也一起歸零，不然製茶工序還顯示「完成了」卻沒有章、下一站按不過去
   procReset(); quizReset(); labReset(true);
   renderStamps();
@@ -3715,6 +3862,121 @@ function labBrew() {
   }, 550 + POUR_MS + 300);
   labLater(() => labBrewDone(btn), 550 + POUR_MS + 700);
 }
+/* ---------- AI 茶師取名：調好一杯茶，AI 先取一個茶名，使用者可以自己改，或請 AI 換一個 ----------
+   AI 連不上時用配料拼出一個名字，畫面不會卡在「取名中」 */
+let labName = '', labNameState = 'idle', labNameReq = 0;   // state：idle／loading／done／edit
+const LAB_NAME_BAN = /嫣然|輕盈|暖陽|養生|養顏|補氣|補血|療|治病|助眠|排毒|瘦身|美白|美顏|降火|降壓|退火|防癌|功效|保健/;
+function labNameFallback() {
+  if (!labPicked.length) return '佛手清韻';
+  const v = labFlavor();
+  const top = LAB_DIMS.filter(k => k !== '茶香').sort((a, b) => v[b] - v[a])[0];
+  const tail = { 花香: '花影', 果香: '果韻', 甜香: '蜜語', 清爽: '清風', 暖意: '爐暖' }[top];
+  return LAB_INGS.find(x => x.id === labPicked[0]).name + tail;
+}
+function labNameClean(t) {
+  const line = noEmoji(plainReply(String(t))).split('\n').map(x => x.trim()).find(Boolean) || '';
+  return line.replace(/^(茶名|名字|名稱)\s*[:：]\s*/, '').replace(/[「」『』《》"'“”‘’.,，。、！!？?：:；;（）()\s]/g, '').slice(0, 8);
+}
+async function labNameAI() {
+  const req = ++labNameReq;
+  labNameState = 'loading'; labNameRender();
+  const t = +document.getElementById('lab-temp').value, m = +document.getElementById('lab-time').value;
+  const v = labFlavor();
+  const flav = LAB_DIMS.filter(k => v[k] > 0).map(k => `${k}${v[k]}`).join('、');
+  const ings = labPicked.map(id => LAB_INGS.find(x => x.id === id).name).join('、') || '不加配料';
+  const prompt = `你是「一握茶研所」的茶師，幫客人親手調的一杯佛手烏龍茶取一個茶名。
+規則：
+- 茶名 2～4 個中文字，典雅、有畫面感，可以借用配料的顏色、香氣、季節或詩意意象。
+- 只回茶名本身：不要引號、標點、拼音、說明或任何其他文字。
+- 不可以用「嫣然」「輕盈」「暖陽」（這三個是品牌既有茶款）。
+- 不可以出現任何功效、保健或療效相關字眼（例如養生、補氣、助眠、美顏）。
+- 每次都取不同的名字${labName ? `，這次不要再用「${labName}」` : ''}。
+【語言規範】只能使用台灣繁體中文，絕對不可以出現任何簡體字。`;
+  const ask = `配料：${ings}；水溫 ${t}°C；浸泡 ${m} 分鐘；風味分數：${flav}。請取茶名。`;
+  let name = '';
+  try { name = labNameClean(await callGemini(prompt, [{ role: 'user', parts: [{ text: ask }] }])); }
+  catch (e) { console.warn('[lab-name]', e); }
+  if (req !== labNameReq) return;   // 這段時間已經重新調了一杯或又按了一次：舊的名字不要蓋上去
+  if (name.length < 2 || LAB_NAME_BAN.test(name)) name = labNameFallback();
+  labName = name; labNameState = 'done'; labNameRender(); labNameStore();
+}
+// 取好（或改好）的茶名記到這次瀏覽：集滿三個章時印在製茶證書上；重新調一杯以最新的為準
+function labNameStore() {
+  if (!labName) return;
+  const myTea = { name: labName, ings: labPicked.map(id => LAB_INGS.find(x => x.id === id).name),
+    temp: +document.getElementById('lab-temp').value, time: +document.getElementById('lab-time').value };
+  try { sessionStorage.setItem('yw-mytea', JSON.stringify(myTea)); } catch (e) {}
+  if (stamps.length === STAMP_DEFS.length) renderStamps();   // 證書已經出現：換上新的茶名、重畫證書圖片
+}
+// 帶著這杯茶去 AI 茶伴：茶伴已經知道配方和茶名，替使用者先問一句，AI 直接聊這杯茶
+let labChatPending = null;
+function labChatTea() {
+  const t = +document.getElementById('lab-temp').value, m = +document.getElementById('lab-time').value;
+  const ings = labPicked.map(id => LAB_INGS.find(x => x.id === id).name).join('、');
+  labChatPending = `我在一握體驗館調了一杯茶${labName ? `，取名「${labName}」` : ''}：${ings ? '佛手烏龍加' + ings : '純佛手烏龍'}，${t}°C 浸泡 ${m} 分鐘。這杯喝起來會是什麼感覺？`;
+  history.replaceState(Object.assign({}, history.state, { modal: true }), '');   // 按返回回到體驗館時重新打開結果視窗
+  labModalClose(true);
+  const fresh = document.getElementById('companion-log').children.length === 0;
+  showView('companion');   // 第一次打開茶伴：startCompanion() 會改成直接聊這杯茶，不打招呼
+  if (!fresh) setTimeout(companionSendPending, 450);
+}
+function companionSendPending() {
+  const text = labChatPending;
+  if (!text) return;
+  labChatPending = null;
+  const input = document.getElementById('companion-input');
+  input.value = text;
+  if (chatBusy.companion) return;   // 茶伴還在回上一題：問題先放在輸入列，讓使用者自己按送出
+  sendCompanion();
+}
+function certMyTea() {
+  try { const t = JSON.parse(sessionStorage.getItem('yw-mytea') || 'null'); return t && t.name ? t : null; } catch (e) { return null; }
+}
+function certTeaDetail(t) { return `${t.ings.length ? t.ings.join('・') : '佛手烏龍'}｜${t.temp}°C・${t.time} 分鐘`; }
+function labNameEdit() { labNameReq++; labNameState = 'edit'; labNameRender(); }
+function labNameSave() {
+  const inp = document.getElementById('lab-name-input');
+  const v = toTrad(noEmoji(inp ? inp.value : '')).trim().slice(0, 8);
+  if (v) labName = v;
+  labNameState = labName ? 'done' : 'idle';
+  labNameRender(); labNameStore();
+}
+function labNameRender() {
+  const box = document.getElementById('lab-name-box');
+  if (!box) return;
+  // 改名、換一個：做成茶名旁邊的小圖示，不另外佔一排按鈕
+  const ib = 'w-8 h-8 shrink-0 rounded-full border border-white/20 text-white/60 flex items-center justify-center btn-bounce';
+  const ic = d => `<svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  if (labNameState === 'loading') {
+    box.innerHTML = `<div class="text-[11px] text-white/45">為這杯茶取名</div>
+      <div class="font-serif text-2xl font-bold text-tea-gold/60 mt-1">茶師取名中…</div>`;
+  } else if (labNameState === 'edit') {
+    box.innerHTML = `<div class="text-[11px] text-white/45">幫這杯茶取個名字（最多 8 個字）</div>
+      <div class="flex justify-center items-center gap-2 mt-1.5">
+        <input id="lab-name-input" type="text" maxlength="8" autocomplete="off" class="w-40 h-10 rounded-full px-4 text-center font-serif font-bold text-tea-gold bg-white/10 border border-tea-gold/50 outline-none" style="font-size:16px"
+          onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229) labNameSave()">
+        <button onclick="labNameSave()" class="h-10 px-4 rounded-full text-xs font-bold bg-tea-gold text-tea-dark btn-bounce">確定</button>
+      </div>`;
+    const inp = document.getElementById('lab-name-input');
+    inp.value = labName; inp.focus({ preventScroll: true }); inp.select();
+  } else if (labNameState === 'done') {
+    box.innerHTML = `<div class="text-[11px] text-white/45">茶師為這杯茶取名</div>
+      <div class="flex justify-center items-center gap-2 mt-1">
+        <button onclick="labNameEdit()" aria-label="自己改名" class="${ib}">${ic('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>')}</button>
+        <div id="lab-name-text" class="font-serif text-2xl font-bold text-tea-gold"></div>
+        <button onclick="labNameAI()" aria-label="請 AI 換一個名字" class="${ib}">${ic('<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>')}</button>
+      </div>`;
+    document.getElementById('lab-name-text').textContent = `「${labName}」`;
+  } else box.innerHTML = '';
+}
+// 結果視窗下方：一個主要按鈕（往下一站），其他放成一排小字
+const LAB_RESULT_ACTIONS = `
+      <button onclick="labModalClose(); labTab('quiz'); document.getElementById('st-quiz').scrollIntoView({behavior:'smooth', block:'start'})" class="w-full mt-6 py-3 rounded-full text-sm font-bold bg-tea-gold text-tea-dark btn-bounce">下一站：茶知識問答 →</button>
+      <div class="flex justify-center items-center gap-3 mt-3 text-xs">
+        <button onclick="labChatTea()" class="font-bold text-emerald-300 btn-bounce">跟 AI 茶伴聊這杯茶</button>
+        <span class="text-white/25">｜</span>
+        <button onclick="labModalClose(); labReset()" class="text-white/55 btn-bounce">重新調一杯</button>
+      </div>`;
 function labShowResult() {
   const v = labFlavor();
   const top = LAB_DIMS.filter(k => k !== '茶香' && v[k] > 0).sort((a, b) => v[b] - v[a]).slice(0, 2);
@@ -3736,24 +3998,20 @@ function labShowResult() {
         ${teaIconSVG(best, '#D4AF37', 'w-11 h-11')}
       </div>
       <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold mt-3">YOUR TEA</div>
+      <div id="lab-name-box" class="mt-2 min-h-[4.25rem]"></div>
       <div class="text-xs text-white/55 mt-2">你調出了一杯${flavorText}</div>
-      <div class="font-serif text-xl font-bold mt-1.5">${exact ? '跟' : '最接近'}「${tea.name}」${exact ? '的配方一模一樣！' : ''}</div>
-      <p class="text-xs mt-2" style="color:${tea.color}">「${tea.slogan || tea.series}」</p>
-      <p class="text-[11px] text-white/50 mt-3 leading-relaxed">${tip.good ? '沖泡條件也剛剛好，這杯茶的香氣會很漂亮。' : tip.text}</p>
-      <div class="flex flex-wrap justify-center gap-2 mt-5">
-        <button onclick="labOpenTea('${tea.id}')" class="px-5 py-2 rounded-full text-sm font-bold btn-bounce" style="background:${tea.color}; color:#12261A">看看「${tea.name}」</button>
-        <button onclick="labModalClose(); labReset()" class="px-5 py-2 rounded-full text-sm font-bold border border-white/30 btn-bounce">重新調一杯</button>
-      </div>
-      <button onclick="labModalClose(); labTab('quiz'); document.getElementById('st-quiz').scrollIntoView({behavior:'smooth', block:'start'})" class="mt-3 text-sm font-bold text-tea-gold btn-bounce">下一站：茶知識問答 →</button>`;
+      <button onclick="labOpenTea('${tea.id}')" class="font-serif text-xl font-bold mt-1.5 btn-bounce">${exact ? '跟' : '最接近'}<span style="color:${tea.color}">「${tea.name}」</span>${exact ? '<span class="whitespace-nowrap">的配方一模一樣！</span>' : ''}<span class="text-sm align-middle ml-0.5" style="color:${tea.color}">›</span></button>
+      ${LAB_RESULT_ACTIONS}`;
   } else {
     html = `<div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold">YOUR TEA</div>
+      <div id="lab-name-box" class="mt-2 min-h-[4.25rem]"></div>
       <div class="text-xs text-white/55 mt-2">你調出了一杯${flavorText}</div>
       <div class="font-serif text-xl font-bold mt-3">試試加入配料，找出你的那一握</div>
       <p class="text-[11px] text-white/50 mt-3 leading-relaxed">${tip.text}</p>
-      <div class="flex justify-center mt-5"><button onclick="labModalClose(); labReset()" class="px-5 py-2 rounded-full text-sm font-bold border border-white/30 btn-bounce">重新調一杯</button></div>
-      <button onclick="labModalClose(); labTab('quiz'); document.getElementById('st-quiz').scrollIntoView({behavior:'smooth', block:'start'})" class="mt-3 text-sm font-bold text-tea-gold btn-bounce">下一站：茶知識問答 →</button>`;
+      ${LAB_RESULT_ACTIONS}`;
   }
   labModal(html);
+  labNameAI();
 }
 // 結果彈出視窗：點背景、右上角 ×、或按 Esc 都能關閉
 let labLastModalHtml = '';
@@ -3776,6 +4034,7 @@ function labModal(html) {
       ${html}
     </div>`;
   document.body.appendChild(m);
+  if (m.querySelector('#lab-name-box')) labNameRender();
 }
 // 從首頁進體驗館：完全沒開始過 → 關卡介紹；做到一半 → 「歡迎回來」；三個章都集滿 → 不跳視窗，直接進館
 function openLab() {
@@ -3868,6 +4127,7 @@ function labModalClose(instant) {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') labModalClose(); });
 function labReset(noScroll) {
   labPendingResult = false;
+  labName = ''; labNameState = 'idle'; labNameReq++;
   labPicked = [];
   document.getElementById('lab-temp').value = 90;
   document.getElementById('lab-time').value = 3;
