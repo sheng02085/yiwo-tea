@@ -2099,11 +2099,10 @@ function showView(name, fromHistory, restoreY) {
   if (name === 'companion' && document.getElementById('companion-log').children.length === 0) {
     startCompanion();
   }
-  // 第一次打開 AI 茶伴：跳出使用說明（從調茶結果直接過來聊那杯茶時先不跳，下次再說明）
-  if (name === 'companion' && !labChatPending) {
-    let seen = false;
-    try { seen = localStorage.getItem('yw-ai-intro') === '1'; } catch (e) {}
-    if (!seen) setTimeout(() => { if (document.getElementById('view-companion').classList.contains('active')) companionIntro(); }, 450);
+  // 打開 AI 茶伴時，只要還沒跟茶伴聊過（對話框裡沒有使用者送出的訊息），每次都跳出使用說明
+  // （從調茶結果直接過來聊那杯茶時不跳）
+  if (name === 'companion' && !labChatPending && !document.querySelector('#companion-log > .justify-end')) {
+    setTimeout(() => { if (document.getElementById('view-companion').classList.contains('active')) companionIntro(); }, 450);
   }
 }
 
@@ -3048,10 +3047,9 @@ ${tm.text}。
     return t;
   } catch (e) { console.warn('[greet]', e); return fallback; }
 }
-/* ---------- AI 茶伴使用說明：第一次打開時跳出，之後可按標題列的「使用說明」再看 ----------
+/* ---------- AI 茶伴使用說明：還沒聊過天時打開就跳出，之後可按標題列的「使用說明」再看 ----------
    跟體驗館的關卡介紹用同一個視窗（#lab-modal.ap）與動畫 */
 function companionIntro() {
-  try { localStorage.setItem('yw-ai-intro', '1'); } catch (e) {}
   labModalClose(true);
   const voice = document.documentElement.classList.contains('can-voice');
   const rows = [
