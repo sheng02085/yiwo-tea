@@ -1418,7 +1418,8 @@ function brewPourSim(svg, clock, delayMs) {
       const spd = Math.hypot(vx, vy0 + G * a), spd0 = Math.hypot(vx, vy0);
       const w = (1.1 + 2.8 * fe) * Math.sqrt(spd0 / spd);
       const tx = -vx / spd, ty = (vy0 + G * a) / spd;
-      if (y >= Y) { impact = x; impF = fe; pts.push([x, Y + 1, w, tx, ty]); break; }
+      // 落到水面就停；第一個點就已經在水面下，表示這段水早就落進杯裡（倒完後的尾巴），不算打到水面
+      if (y >= Y) { if (pts.length) { impact = x; impF = fe; pts.push([x, Y + 1, w, tx, ty]); } break; }
       pts.push([x, y, w, tx, ty]);
     }
     if (pts.length > 1) {
@@ -1440,7 +1441,7 @@ function brewPourSim(svg, clock, delayMs) {
     if (impact != null && L > 0.01 && dt > 0) {
       const n = Math.random() < dt * 34 * impF ? 1 + (Math.random() < 0.5) : 0;
       for (let i = 0; i < n; i++) drops.push({ x: impact + (Math.random() - 0.5) * 3, y: Y, vx: (Math.random() - 0.5) * 110, vy: -(55 + Math.random() * 95), r: 0.6 + Math.random() * 0.9 });
-      if (Math.random() < dt * 22 * impF) bubbles.push({ x: impact + (Math.random() - 0.5) * 10, y: Y + 5 + Math.random() * Math.min(26, (BREW_CUP.bottom - Y) * 0.8), vy: -(14 + Math.random() * 22), r: 0.6 + Math.random() * 1.1, ph: Math.random() * 6 });
+      if (Math.random() < dt * 22 * impF) bubbles.push({ x: impact + (Math.random() - 0.5) * 10, y: Y + 5 + Math.random() * Math.min(26, (BREW_CUP.bottom - Y) * 0.8), vy: -(30 + Math.random() * 30), r: 0.6 + Math.random() * 1.1, ph: Math.random() * 6 });
       rippleAcc += dt;
       if (rippleAcc > 0.13) { rippleAcc = 0; ripples.push({ x: impact, age: 0, s: 0.6 + impF * 0.6 }); }
     }
