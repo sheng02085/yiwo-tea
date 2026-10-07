@@ -2044,6 +2044,10 @@ function showView(name, fromHistory, restoreY) {
     if (back && !el.parentElement.closest('.fade-in-block, .scroll-fade')) el.style.setProperty('--bd', Math.min(bi++, 5) * 60 + 'ms');
   });
 
+  // 回到首頁要重播主視覺時，先拿掉上次留下的 .play：
+  // 否則首頁一顯示，瀏覽器會自動把還掛著 .play 的動畫從頭播，250ms 後 playHeroAnim() 又重播一次，開頭會跑兩次
+  if (name === 'landing' && !heroReplaySkip) document.getElementById('hero-anim')?.classList.remove('play');
+
   // 先完成一次 layout，再顯示目標 view。
   void document.body.offsetHeight;
   target.classList.add('active');
