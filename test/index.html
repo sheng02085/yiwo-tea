@@ -176,6 +176,14 @@ html.can-voice .mic-btn { display: flex; }
 .chip { transition: transform .15s ease, opacity .15s ease; }
 /* iPhone：輸入框字小於 16px，點進去會自動放大畫面而且不會縮回來 */
 /* 手機上輸入的字用 16px（iPhone 才不會自動放大畫面），提示文字維持小一點 */
+/* AI 茶伴：上傳茶的照片（選好照片後輸入列上方出現預覽，泡泡裡顯示縮圖）；動畫只用 transform / opacity */
+#companion-photo { display: none; }
+#companion-photo.on { display: flex; }
+#companion-photo.out { animation: photoOut .2s ease both; }
+@keyframes photoOut { to { opacity: 0; transform: translateY(6px); } }
+.photo-thumb { width: 52px; height: 52px; object-fit: cover; border-radius: 12px; flex-shrink: 0; border: 1px solid rgba(255,255,255,.2); }
+.bubble-photo { display: block; width: 100%; max-width: 180px; max-height: 220px; object-fit: cover; border-radius: 12px; margin-bottom: 6px; }
+@media (prefers-reduced-motion: reduce) { #companion-photo.out { animation: none; opacity: 0; } }
 @media (pointer: coarse) { #companion-input, #product-chat-input { font-size: 16px; } #companion-input::placeholder, #product-chat-input::placeholder { font-size: 13px; } }
 .chip:active { transform: scale(.95); }
 
@@ -716,6 +724,7 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
     <symbol id="yi-scroll" viewBox="0 0 24 24"><path d="M6.5 5h11v14h-11z" fill="currentColor" fill-opacity=".22"/><path d="M4 5h16M4 19h16"/><path d="M9 5l3-2.5L15 5"/><path d="M12 8.5v7M9.5 8.5v4.5M14.5 11v4.5"/></symbol>
     <symbol id="yi-chat" viewBox="0 0 24 24"><path d="M5 4.5h14a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2h-7.5L6 21v-4H5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2z" fill="currentColor" fill-opacity=".22"/><circle cx="8.5" cy="10.8" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="10.8" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.8" r="1" fill="currentColor" stroke="none"/></symbol>
     <symbol id="yi-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor" fill-opacity=".22"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/><path d="M8.5 21h7"/></symbol>
+    <symbol id="yi-camera" viewBox="0 0 24 24"><path d="M4 8h3.2l1.6-2.5h6.4L16.8 8H20a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 20H4a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 4 8z" fill="currentColor" fill-opacity=".22"/><circle cx="12" cy="13.8" r="3.4"/><path d="M18 10.6v.01" stroke-width="1.8"/></symbol>
     <symbol id="yi-send" viewBox="0 0 24 24"><path d="M21 3 3.5 10.2l7 3.3 3.3 7z" fill="currentColor" fill-opacity=".22"/><path d="M21 3 10.5 13.5"/></symbol>
     <symbol id="yi-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.2" fill="currentColor" fill-opacity=".22"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="M12 15v2.2"/></symbol>
     <symbol id="yi-tap" viewBox="0 0 24 24"><path d="M10 13V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M13 10.5a1.5 1.5 0 0 1 3 0V12"/><path d="M16 11.5a1.5 1.5 0 0 1 3 0V15c0 3.6-2.5 6-6 6h-1c-2.1 0-3.5-.9-4.7-2.5l-2.8-3.8a1.5 1.5 0 0 1 2.4-1.8L10 15"/><path d="M6.5 4.5 5 3M6 7.5H4"/></symbol>
@@ -1150,8 +1159,15 @@ body > header, body > main { animation: pageIn .8s ease 2.6s both; }
         </div>
         <div id="companion-log" class="flex-1 p-4 space-y-3 overflow-y-auto text-xs" style="max-height:min(55vh, 520px)"></div>
         <div id="companion-chips" class="p-3 border-t border-white/10 flex flex-wrap gap-2"></div>
+        <div id="companion-photo" class="chip-in px-3 pt-3 items-center gap-3 border-t border-white/10">
+          <img id="companion-photo-img" class="photo-thumb" alt="準備送出的照片">
+          <div class="flex-1 min-w-0 text-[11px] text-white/60 leading-relaxed">已選好照片，可以再打一句想問的話，或直接按送出</div>
+          <button type="button" onclick="companionPhotoClear()" aria-label="移除照片" class="w-8 h-8 flex-shrink-0 rounded-full border border-white/20 text-white/60 text-lg leading-none btn-bounce">×</button>
+        </div>
         <div class="p-3 border-t border-white/10 flex items-center gap-2">
           <button type="button" class="mic-btn w-10 h-10 flex-shrink-0 rounded-full liquid-glass-dark border border-white/20 items-center justify-center btn-bounce" onclick="voiceToggle('companion', this)" aria-label="語音輸入" title="按一下說話"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-mic"/></svg></span></button>
+          <button type="button" id="companion-photo-btn" class="w-10 h-10 flex-shrink-0 rounded-full liquid-glass-dark border border-white/20 flex items-center justify-center btn-bounce" onclick="companionPhotoPick()" aria-label="上傳茶的照片" title="上傳茶葉、茶湯或茶樹葉片的照片"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-camera"/></svg></span></button>
+          <input id="companion-file" type="file" accept="image/*" class="hidden" onchange="companionPhotoChosen(this)">
           <input id="companion-input" type="text" placeholder="說說你今天的狀態或心情…" maxlength="200" class="chat-input flex-1 min-w-0 h-10 liquid-glass-dark rounded-full px-4 text-xs outline-none placeholder:text-white/30" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode !== 229) sendCompanion()">
           <button onclick="sendCompanion()" aria-label="送出" class="w-10 h-10 flex-shrink-0 rounded-full bg-emerald-400 text-tea-dark flex items-center justify-center btn-bounce"><span class="text-base leading-none"><svg class="yi" aria-hidden="true"><use href="#yi-send"/></svg></span></button>
         </div>
@@ -2629,10 +2645,11 @@ function toTrad(t) {
 function noEmoji(t) {
   return String(t).replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}\u{3030}\u{303D}]/gu, '').replace(/[ \t]{2,}/g, ' ');
 }
-async function callGemini(systemPrompt, contents) {
-  // Worker 沒回應時最多等 25 秒，不讓聊天一直卡在「思考中」
+async function callGemini(systemPrompt, contents, opts) {
+  opts = opts || {};
+  // Worker 沒回應時最多等 25 秒（看照片給 40 秒），不讓聊天一直卡在「思考中」
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 25000);
+  const timer = setTimeout(() => ctrl.abort(), opts.timeout || 25000);
   try {
   const res = await fetch(WORKER_URL, {
     method: "POST",
@@ -2642,7 +2659,7 @@ async function callGemini(systemPrompt, contents) {
       model: GEMINI_MODEL,
       contents,
       systemInstruction: { parts: [{ text: systemPrompt }] },
-      generationConfig: { temperature: 0.8, maxOutputTokens: 400 }
+      generationConfig: { temperature: opts.temperature ?? 0.8, maxOutputTokens: opts.maxTokens || 400 }
     })
   });
   if (!res.ok) {
@@ -3352,6 +3369,7 @@ function companionIntro() {
   const rows = [
     ['chat', '說說今天的狀態', '在下方輸入框打字，例如「下午有點累」「想喝點溫暖的」'],
     ['tap', '點選建議', '不知道說什麼？點輸入框上方的建議按鈕就能接著聊'],
+    ['camera', '拍張茶的照片', '按相機鈕上傳茶葉、茶湯或茶樹葉片的照片，茶伴幫你看看是什麼茶，或葉子有沒有病蟲害'],
     ...(voice ? [['mic', '用說的也可以', '按麥克風說話，或開啟右上角「語音模式」，茶伴會唸給你聽']] : []),
     ['cup', '看推薦的茶', '回覆下方的按鈕，直接打開推薦茶款的介紹']
   ];
@@ -3441,6 +3459,7 @@ function capReply(text, max) {
 }
 async function sendCompanion(srcEl) {
   const input = document.getElementById('companion-input');
+  if (companionPhoto && !chatBusy.companion) return sendCompanionPhoto();
   const text = input.value.trim();
   if (!text || chatBusy.companion) return;
   chatBusy.companion = true;
@@ -3507,6 +3526,150 @@ ${dbText}
     if (last && last.role === 'user') companionHistory.pop();   // 沒答成的問題不要留在紀錄裡
     await removeTyping('companion-log');
     addBubble('companion-log', 'bot', CHAT_ERR, yiIcon('hands', '#D4AF37'));
+    renderChips(['想放鬆一下', '最近外食比較多', '想喝點溫暖的']);
+  } finally {
+    chatBusy.companion = false;
+  }
+}
+
+/* ---------- AI 茶伴：上傳茶的照片 ----------
+   使用者拍照或從相簿選一張照片 → 在手機上先縮到長邊 1024px、轉成 JPEG（約 100～300 KB）→
+   跟著文字一起交給 Gemini（Worker 原樣轉送，不用改）。AI 先判斷照片是「茶葉／茶湯」還是「茶樹葉片」：
+   前者猜是什麼茶並帶到最接近的一握茶款，後者看有沒有病蟲害跡象。
+   照片只送這一次，對話紀錄只記「上傳了一張照片」，後面的提問不會重複上傳 */
+let companionPhoto = null;   // { data: base64, url: 預覽用 dataURL }
+const PHOTO_MAX = 1024;
+function companionPhotoPick() {
+  if (chatBusy.companion) return;
+  document.getElementById('companion-file').click();
+}
+function loadImage(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('image decode failed')); i.src = src; });
+}
+async function shrinkPhoto(file) {
+  const src = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(src);   // 瀏覽器會依 EXIF 自動轉正
+    const w0 = img.naturalWidth, h0 = img.naturalHeight;
+    if (!w0 || !h0) throw new Error('empty image');
+    const k = Math.min(1, PHOTO_MAX / Math.max(w0, h0));
+    const c = document.createElement('canvas');
+    c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);   // 透明 PNG 轉 JPEG 不會變黑底
+    g.drawImage(img, 0, 0, c.width, c.height);
+    const url = c.toDataURL('image/jpeg', 0.82);
+    return { url, data: url.slice(url.indexOf(',') + 1) };
+  } finally { URL.revokeObjectURL(src); }
+}
+async function companionPhotoChosen(inp) {
+  const file = inp.files && inp.files[0];
+  inp.value = '';   // 清掉，同一張照片可以再選一次
+  if (!file) return;
+  try {
+    companionPhoto = await shrinkPhoto(file);
+  } catch (e) {
+    console.warn('[photo]', e);
+    companionPhoto = null;
+    addBubble('companion-log', 'bot', '這張照片讀不出來，換一張 JPG 或 PNG 的照片試試看', yiIcon('hands', '#D4AF37'));
+    return;
+  }
+  const box = document.getElementById('companion-photo');
+  document.getElementById('companion-photo-img').src = companionPhoto.url;
+  box.classList.remove('out', 'on'); void box.offsetWidth; box.classList.add('on');
+  document.getElementById('companion-input').placeholder = '想問什麼？（可以不填）';
+}
+function companionPhotoClear(keepAnim) {
+  companionPhoto = null;
+  const box = document.getElementById('companion-photo');
+  document.getElementById('companion-input').placeholder = '說說你今天的狀態或心情…';
+  if (!box.classList.contains('on')) return;
+  if (REDUCE_MOTION || keepAnim === false) { box.classList.remove('on', 'out'); return; }
+  box.classList.add('out');
+  setTimeout(() => box.classList.remove('on', 'out'), 200);
+}
+// AI 第一行固定寫【類型】，網頁依類型補上固定的提醒（不讓 AI 自己決定要不要講）
+const PHOTO_NOTE = {
+  茶葉: '從照片外觀推測，僅供參考',
+  茶樹: '這是依照片做的初步參考，不是正式診斷；想確認病因，建議帶葉片樣本詢問農業部茶及飲料作物改良場或當地農會'
+};
+async function sendCompanionPhoto() {
+  const input = document.getElementById('companion-input');
+  const photo = companionPhoto;
+  const ask = input.value.trim();
+  chatBusy.companion = true;
+  voiceTurn.companion = false;   // 照片題不用唸
+  flySend('companion-input');
+  input.value = '';
+  companionPhotoClear(false);
+  document.getElementById('companion-chips').innerHTML = '';
+  const shown = ask || '幫我看看這張照片';
+  const userBubble = addBubble('companion-log', 'user', shown);
+  const pic = document.createElement('img');
+  pic.className = 'bubble-photo';
+  pic.alt = '上傳的照片';
+  pic.src = photo.url;
+  userBubble.prepend(pic);
+  pic.onload = () => { const log = document.getElementById('companion-log'); log.scrollTop = log.scrollHeight; };
+  const histText = `（我上傳了一張照片）${shown}`;
+  companionHistory.push({ role: 'user', text: histText });
+  addTyping('companion-log');
+
+  const dbText = TEA_DB.map(t => `- ${t.name}（${t.series}）：配方 ${t.formula}；風味 ${t.flavor}`).join('\n');
+  const systemPrompt = `你是「一握茶研所」的 AI 茶伴，使用者上傳了一張照片請你看看。先判斷照片屬於下面哪一類，再照那一類的方式回答。
+一握茶研所的茶款：
+${dbText}
+
+【茶葉】乾茶葉、泡開的葉底、一杯茶湯、茶包或茶葉包裝：
+判斷最可能是哪一類茶（例如綠茶、包種茶、烏龍茶、高山茶、東方美人、鐵觀音、紅茶、白茶、普洱、花草茶），說出你從照片看到的依據（例如條索捲曲或條狀、色澤、湯色深淺）。只能說「看起來像」，不要說得很肯定，也不要猜確切的品牌或價格。照片如果是一握的茶罐或茶湯可以直接認出。最後用一句話點出上面清單裡風味最接近的一款『茶名』，茶名要寫完整。
+【茶樹】種在田裡或盆裡的茶樹、茶葉的新芽、葉片或枝條：
+仔細看葉片有沒有病蟲害跡象（斑點、褐斑、焦枯、捲曲、皺縮、白色粉狀或黴狀物、蟲咬缺刻、葉背的小蟲或蟲卵、蛛網）。有的話描述看到的症狀，說出最可能的一到兩種（例如茶餅病、炭疽病、赤葉枯病、茶小綠葉蟬、茶角盲椿象、茶細蟎、神澤氏葉蟎、茶捲葉蛾），再給一個初步照顧方向（例如剪除病葉、改善通風排水、觀察葉背）。不要指定農藥名稱或用量。看起來健康就說目前沒看到明顯病蟲害。不用推薦茶款。不要自己加「僅供參考」「不是正式診斷」這類話，網頁會自動補上。
+【其他】跟茶無關、太模糊或看不清楚：禮貌說你看不太出來，請使用者在光線充足的地方拍近一點的茶葉或葉片。
+
+${ask ? `使用者的問題：「${ask}」，請一併回答。` : ''}
+【輸出格式】第一行只寫類型，固定是「【類型】茶葉」「【類型】茶樹」或「【類型】其他」其中一個。第二行開始是回答，150 字以內，純文字，不要 Markdown、不要條列、不要 emoji。
+回答結束後另起一行，固定用這個格式列出 3 個使用者可能想接著說的話：
+【建議】建議一|建議二|建議三
+每個 15 字以內，用使用者的口吻。
+【語言規範】一律使用臺灣繁體中文與臺灣慣用語回答，絕對不能出現任何簡體字。
+【重要規範】不能使用「燃脂」「排油」「減肥」「瘦身」「代謝」「消脂」等暗示醫療或減重功效的字眼，也不要說喝茶對身體有什麼療效。`;
+
+  try {
+    // 前面的對話照樣用文字帶進去；照片只放在這一則
+    const contents = toGeminiContents(companionHistory.slice(0, -1));
+    contents.push({ role: 'user', parts: [{ inlineData: { mimeType: 'image/jpeg', data: photo.data } }, { text: shown }] });
+    const raw = await callGemini(systemPrompt, contents, { timeout: 40000, maxTokens: 700, temperature: 0.4 });
+    let body = plainReply(noEmoji(raw));
+    const kind = (/【?類型】?\s*[:：]?\s*(茶葉|茶樹|其他)/.exec(body) || [])[1] || '其他';
+    body = body.replace(/^.*類型】?\s*[:：]?\s*(茶葉|茶樹|其他)[^\n]*\n?/m, '').trim();
+    const [full, suggestions] = splitSuggest(body);
+    let reply = capReply(full, 200);
+    if (PHOTO_NOTE[kind]) reply += `\n\n（${PHOTO_NOTE[kind]}）`;
+    await removeTyping('companion-log');
+    const bubble = addBubble('companion-log', 'bot', '');
+    await typeIntoBubble('companion-log', bubble, reply);
+    companionHistory.push({ role: 'bot', text: reply });
+    const mentionedTea = kind === '茶葉' ? findMentionedTea(full) : null;
+    if (mentionedTea) {
+      const linkWrap = document.createElement('div');
+      linkWrap.className = 'flex justify-start mt-1 chip-in';
+      const linkBtn = document.createElement('button');
+      linkBtn.className = 'chip text-[11px] bg-tea-gold/90 text-tea-dark font-bold rounded-full px-3.5 py-1.5 flex items-center gap-1.5';
+      linkBtn.innerHTML = `${teaIconSVG(mentionedTea.id, "#12261A", "w-4 h-4 flex-shrink-0")}看看「${mentionedTea.name}」的完整介紹 →`;
+      linkBtn.onclick = () => openProduct(mentionedTea.id);
+      linkWrap.appendChild(linkBtn);
+      document.getElementById('companion-log').appendChild(linkWrap);
+      document.getElementById('companion-log').scrollTop = document.getElementById('companion-log').scrollHeight;
+    }
+    companionStage = 1;
+    renderChips(suggestions.length ? suggestions
+      : kind === '茶樹' ? ['這要怎麼照顧', '再拍一張給你看', '推薦我一款茶'] : ['這種茶怎麼泡', '再拍一張給你看', '推薦我一款茶']);
+  } catch (e) {
+    console.warn('[sendCompanionPhoto]', e);
+    const last = companionHistory[companionHistory.length - 1];
+    if (last && last.role === 'user') companionHistory.pop();
+    await removeTyping('companion-log');
+    addBubble('companion-log', 'bot', '茶伴暫時看不了這張照片，請稍後再試一次', yiIcon('hands', '#D4AF37'));
     renderChips(['想放鬆一下', '最近外食比較多', '想喝點溫暖的']);
   } finally {
     chatBusy.companion = false;
