@@ -772,6 +772,44 @@ header h1, #back-btn { white-space: nowrap; }
 /* 頁尾 */
 .yw-footer { position: relative; z-index: 10; text-align: center; padding: 2rem 1.25rem calc(env(safe-area-inset-bottom, 0px) + 1.75rem); color: rgba(255,255,255,.45); font-size: 11px; line-height: 1.8; border-top: 1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.18); }
 .yw-footer button { color: rgba(212,175,55,.85); text-decoration: underline; text-underline-offset: 3px; }
+/* 三好四給（我們的初心） */
+.sg-grid { display: grid; grid-template-columns: 1fr; gap: .65rem; }
+@media (min-width: 768px) { .sg-grid { grid-template-columns: 1fr 1fr; } }
+.sg-item { border-radius: 1rem; padding: .9rem 1rem; background: rgba(0,0,0,.2); border: 1px solid rgba(212,175,55,.3); }
+.sg-k { font-family: 'Noto Serif TC', serif; font-weight: 700; color: #D4AF37; font-size: 1rem; letter-spacing: .1em; }
+.sg-item p { font-size: .75rem; line-height: 1.7; color: rgba(255,255,255,.7); margin-top: .3rem; }
+.sg-item button { margin-top: .4rem; font-size: .72rem; font-weight: 700; color: #6EE7B7; }
+.sh-row { display: grid; grid-template-columns: 1fr; gap: .5rem; }
+@media (min-width: 768px) { .sh-row { grid-template-columns: repeat(3, 1fr); } }
+.sh-item { text-align: center; border-radius: .9rem; padding: .7rem .8rem; background: rgba(255,255,255,.05); }
+.sh-item b { display: block; color: #fff; font-family: 'Noto Serif TC', serif; font-size: .95rem; letter-spacing: .12em; }
+.sh-item span { display: block; color: rgba(255,255,255,.6); font-size: .72rem; line-height: 1.6; margin-top: .2rem; }
+/* 一杯茶的旅程 */
+.jr-list { display: grid; grid-template-columns: 1fr; gap: .55rem; list-style: none; padding: 0; margin-left: 0; margin-right: 0; margin-bottom: 0; }
+@media (min-width: 1024px) { .jr-list { grid-template-columns: repeat(5, 1fr); } }
+.jr-list li { display: flex; gap: .7rem; align-items: flex-start; border-radius: 1rem; padding: .75rem .85rem; background: rgba(0,0,0,.2); border: 1px solid rgba(255,255,255,.08); }
+@media (min-width: 1024px) { .jr-list li { flex-direction: column; align-items: center; text-align: center; } }
+.jr-n { flex-shrink: 0; width: 1.8rem; height: 1.8rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: .85rem; color: #12261A; background: #D4AF37; }
+.jr-list b { display: block; font-size: .85rem; color: #fff; }
+.jr-list span:not(.jr-n) { display: block; font-size: .72rem; line-height: 1.6; color: rgba(255,255,255,.6); margin-top: .15rem; }
+/* 關於 AI：架構圖、AI 應用 */
+.arch { display: flex; flex-direction: column; align-items: stretch; gap: .35rem; }
+@media (min-width: 768px) { .arch { flex-direction: row; align-items: center; } }
+.arch-box { flex: 1; text-align: center; border-radius: .9rem; padding: .7rem .6rem; background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.15); }
+.arch-box.gold { border-color: rgba(212,175,55,.7); background: rgba(212,175,55,.1); }
+.arch-box b { display: block; font-size: .82rem; color: #fff; }
+.arch-box span { display: block; font-size: .68rem; line-height: 1.55; color: rgba(255,255,255,.58); margin-top: .2rem; }
+.arch-arrow { align-self: center; width: 2px; height: 14px; background: rgba(212,175,55,.6); position: relative; }
+.arch-arrow::after { content: ''; position: absolute; left: 50%; bottom: -4px; margin-left: -4px; border: 4px solid transparent; border-top-color: rgba(212,175,55,.8); border-bottom: 0; }
+@media (min-width: 768px) { .arch-arrow { width: 14px; height: 2px; flex-shrink: 0; } .arch-arrow::after { left: auto; right: -4px; bottom: auto; top: 50%; margin: -4px 0 0; border: 4px solid transparent; border-left-color: rgba(212,175,55,.8); border-right: 0; } }
+.ai-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+@media (min-width: 1024px) { .ai-grid { grid-template-columns: repeat(4, 1fr); } }
+.ai-grid > div { border-radius: .9rem; padding: .65rem .75rem; background: rgba(0,0,0,.2); border: 1px solid rgba(255,255,255,.08); }
+.ai-grid b { display: block; font-size: .8rem; color: #D4AF37; }
+.ai-grid span { display: block; font-size: .7rem; line-height: 1.55; color: rgba(255,255,255,.62); margin-top: .15rem; }
+.safe-list { list-style: decimal; padding-left: 1.2rem; }
+.safe-list li { margin-top: .35rem; }
+.safe-list b { color: #fff; }
 /* 關於 AI 頁 */
 .about-list { margin-top: .5rem; }
 .about-list li { position: relative; padding-left: 1rem; margin-top: .4rem; }
@@ -900,15 +938,17 @@ header h1, #back-btn { white-space: nowrap; }
         <!-- 平板／電腦（橫向畫面）：左邊文字、右邊動畫並排，不多佔高度，第一屏仍放得下三款茶 -->
         <div class="space-y-4 md:text-left">
         <div>
-          <h2 class="font-serif text-3xl lg:text-5xl font-bold drop-shadow-md">一握茶研所<span class="beta-tag">BETA46</span></h2>
+          <h2 class="font-serif text-3xl lg:text-5xl font-bold drop-shadow-md">一握茶研所<span class="beta-tag">BETA47</span></h2>
           <!-- 2026 三好 AI 競賽：給人方便、給人希望 -->
           <p class="font-serif text-tea-gold text-lg lg:text-2xl font-bold mt-3 leading-relaxed">隨時有人聽你說，<br class="md:hidden">每天都有一杯希望。</p>
           <p class="text-white/60 text-xs lg:text-base mt-2 leading-relaxed">在忙碌與疲憊的時候，AI 陪你說說話，<br>再為你泡一杯剛剛好的茶。</p>
         </div>
+        <!-- 主按鈕直接進 AI 茶伴（隨時有人聽你說）；品牌故事改成下方小連結 -->
         <div class="flex flex-wrap gap-3 justify-center md:justify-start">
-        <button onclick="showView('story')" class="bg-tea-gold text-tea-dark font-bold text-sm lg:text-base px-8 lg:px-10 py-3 rounded-full shadow-[0_0_20px_rgba(212,175,55,0.3)] btn-bounce inline-block">品牌故事</button>
+        <button onclick="showView('companion')" class="bg-tea-gold text-tea-dark font-bold text-sm lg:text-base px-8 lg:px-10 py-3 rounded-full shadow-[0_0_20px_rgba(212,175,55,0.3)] btn-bounce inline-block">聊聊今天</button>
         <button onclick="goMission()" class="border border-tea-gold/70 text-tea-gold font-bold text-sm lg:text-base px-6 lg:px-8 py-3 rounded-full btn-bounce inline-block">我們的初心</button>
         </div>
+        <div class="!mt-3"><button onclick="showView('story')" class="text-white/55 text-xs lg:text-sm underline underline-offset-4 btn-bounce">看看品牌故事 →</button></div>
         </div>
         <!-- 五秒小動畫（手機在下方置中；平板／電腦放在文字右邊）（參考「鏡頭推進、轉場帶到下一個畫面、最後收成商標」的手法）
              茶壺畫出來、倒茶進杯 → 鏡頭推進杯裡的茶湯 → 三款茶依序滑過 → 茶湯收成印章內圈、外框畫上、茶字浮現、冒熱氣（點一下可重播） -->
@@ -1082,7 +1122,40 @@ header h1, #back-btn { white-space: nowrap; }
               <p class="text-xs lg:text-sm text-white/70 leading-relaxed mt-1.5">每一次對話，都先給你一句溫暖的話，讓明天多一點期待。</p>
             </div>
           </div>
-          <div class="text-center mt-5"><button onclick="showView('companion')" class="bg-emerald-400 text-tea-dark font-bold text-sm px-7 py-2.5 rounded-full btn-bounce">跟 AI 茶伴聊聊今天</button></div>
+          <!-- 三好四給：每一項都對應到網站上的實際功能 -->
+          <div class="mt-6 pt-5 border-t border-white/10">
+            <h4 class="text-center font-serif text-lg lg:text-xl font-bold text-tea-gold">四給，在一握的樣子</h4>
+            <div class="sg-grid mt-4">
+              <div class="sg-item"><div class="sg-k">給人信心</div><p>心情低落時先被好好接住，安心專線 1925 一鍵就能撥；長輩模式讓家裡的長輩也能自己用。</p><button onclick="showView('companion')">試試 AI 茶伴 →</button></div>
+              <div class="sg-item"><div class="sg-k">給人歡喜</div><p>在體驗館親手製茶、調一杯自己的茶，領一張製茶證書；今日一句卡片可以存下來、分享給朋友。</p><button onclick="openLab()">逛逛體驗館 →</button></div>
+              <div class="sg-item"><div class="sg-k">給人希望</div><p>每一次對話，AI 先說一句溫暖的話，最後再送你一句專屬的「今日一句」，讓明天多一點期待。</p><button onclick="showView('companion')">收一句今日一句 →</button></div>
+              <div class="sg-item"><div class="sg-k">給人方便</div><p>不用登入，打字、說話、拍照都能問；掃茶罐上的 QR Code 就知道怎麼泡，一鍵開始計時。</p><button onclick="goToTeas()">看看三款茶 →</button></div>
+            </div>
+            <h4 class="text-center font-serif text-lg lg:text-xl font-bold text-tea-gold mt-6">三好，寫進 AI 的規則裡</h4>
+            <div class="sh-row mt-4">
+              <div class="sh-item"><b>說好話</b><span>AI 不說教、不批評，先肯定你的感受</span></div>
+              <div class="sh-item"><b>做好事</b><span>拍下茶樹葉片，幫茶農初步看病蟲害；用 QR Code 取代紙本說明</span></div>
+              <div class="sh-item"><b>存好心</b><span>不登入、不存對話，不誇大療效，誠實說明 AI 的限制</span></div>
+            </div>
+          </div>
+          <div class="text-center mt-6"><button onclick="showView('companion')" class="bg-emerald-400 text-tea-dark font-bold text-sm px-7 py-2.5 rounded-full btn-bounce">跟 AI 茶伴聊聊今天</button></div>
+        </div>
+
+        <!-- 一杯茶的旅程：把 AI 茶伴、茶罐 QR Code、泡茶計時、今日一句串成一條體驗 -->
+        <div id="journey" class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:540ms; scroll-margin-top: 96px;">
+          <div class="text-center">
+            <div class="text-[10px] tracking-[0.3em] pl-[0.3em] text-tea-gold">A CUP OF HOPE</div>
+            <h3 class="font-serif text-xl lg:text-2xl font-bold mt-1">一杯茶的旅程</h3>
+            <p class="text-xs lg:text-sm text-white/55 mt-1">從說出心情，到收下一句希望</p>
+          </div>
+          <ol class="jr-list mt-5">
+            <li><span class="jr-n">1</span><div><b>說說心情</b><span>打字、說話或拍張照片都可以</span></div></li>
+            <li><span class="jr-n">2</span><div><b>AI 先接住你</b><span>一句溫暖的話，再推薦一杯適合的茶</span></div></li>
+            <li><span class="jr-n">3</span><div><b>掃一下茶罐</b><span>QR Code 打開這款茶的配方與泡法</span></div></li>
+            <li><span class="jr-n">4</span><div><b>一鍵泡茶計時</b><span>水溫、時間、份量都幫你算好，泡好了會提醒</span></div></li>
+            <li><span class="jr-n">5</span><div><b>收下今日一句</b><span>存成卡片，讓明天多一點期待</span></div></li>
+          </ol>
+          <div class="text-center mt-5"><button onclick="showView('companion')" class="bg-tea-gold text-tea-dark font-bold text-sm px-7 py-2.5 rounded-full btn-bounce">開始這趟旅程</button></div>
         </div>
 
         <!-- 品牌形象片：影片路徑在 JS 的 BRAND_FILM 設定；沒設定或檔案讀不到就整塊不顯示。
@@ -1305,7 +1378,38 @@ header h1, #back-btn { white-space: nowrap; }
           <h2 class="font-serif text-3xl lg:text-4xl font-bold mt-4">關於 AI</h2>
           <p class="text-sm text-white/60 mt-3">我們怎麼使用 AI、你的資料怎麼處理</p>
         </div>
+        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:150ms">
+          <h3 class="text-tea-gold font-bold text-sm lg:text-base mb-3"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-cycle"/></svg></span>系統架構</h3>
+          <div class="arch" role="img" aria-label="系統架構：你的手機或電腦，經過一握網站與 Cloudflare Worker，連到 Google Gemini">
+            <div class="arch-box"><b>你的手機／電腦</b><span>打字・說話・拍照</span></div>
+            <div class="arch-arrow" aria-hidden="true"></div>
+            <div class="arch-box"><b>一握網站</b><span>團隊設計的提示詞<br>關心偵測・回覆檢查・失敗備援</span></div>
+            <div class="arch-arrow" aria-hidden="true"></div>
+            <div class="arch-box"><b>Cloudflare Worker</b><span>保管 API 金鑰・轉送請求</span></div>
+            <div class="arch-arrow" aria-hidden="true"></div>
+            <div class="arch-box gold"><b>Google Gemini</b><span>文字對話・看圖・語音朗讀</span></div>
+          </div>
+        </div>
         <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:300ms">
+          <h3 class="text-tea-gold font-bold text-sm lg:text-base mb-3"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-leaf"/></svg></span>7 種 AI 應用</h3>
+          <div class="ai-grid">
+            <div><b>AI 茶伴</b><span>聽你說心情，先回應再推薦茶</span></div>
+            <div><b>看照片</b><span>辨識茶葉，或看茶樹有沒有病蟲害</span></div>
+            <div><b>語音對話</b><span>用說的問，AI 唸回答給你聽</span></div>
+            <div><b>今日一句</b><span>每次對話生成專屬鼓勵短句</span></div>
+            <div><b>節氣開場白</b><span>依日期、節氣、時段打招呼</span></div>
+            <div><b>茶款問答</b><span>每款茶都有自己的 AI 解說</span></div>
+            <div><b>DIY 茶名</b><span>為你在體驗館調的茶取名字</span></div>
+          </div>
+          <h3 class="text-tea-gold font-bold text-sm lg:text-base mt-6 mb-3"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-lock"/></svg></span>4 層安全與穩定設計</h3>
+          <ol class="safe-list text-xs lg:text-sm text-white/70 leading-relaxed">
+            <li><b>提示詞規範</b>：只用臺灣繁體中文、不說教、不宣稱療效，遇到需要關心的話優先提供安心專線。</li>
+            <li><b>網頁再檢查</b>：AI 回覆一律簡轉繁，再過濾療效字眼與表情符號，太長就整句刪減。</li>
+            <li><b>關心偵測</b>：網頁自己判斷使用者是不是很難過，不靠 AI；就算 AI 連不上，也一定會顯示 1925 安心專線。</li>
+            <li><b>失敗備援</b>：AI 逾時或額度用完時，改用依時段的預設推薦和鼓勵話，畫面不會壞掉。</li>
+          </ol>
+        </div>
+        <div class="liquid-glass-dark rounded-2xl p-5 lg:p-7 border border-white/10 fade-in-block" style="animation-delay:450ms">
           <h3 class="text-tea-gold font-bold text-sm lg:text-base mb-2"><span class="mr-1.5"><svg class="yi" aria-hidden="true"><use href="#yi-chat"/></svg></span>使用的 AI 工具</h3>
           <ul class="about-list text-xs lg:text-sm text-white/70 leading-relaxed">
             <li>AI 茶伴、茶款問答、照片辨識、今日一句與 DIY 茶名，使用 Google Gemini（gemini-3.5-flash-lite），透過我們自己設定的 Cloudflare Worker 串接；API 金鑰存在 Worker 的加密設定裡，不會出現在網頁上。</li>
@@ -3543,11 +3647,11 @@ function teaMoment(d) {
   return { date: `${d.getMonth() + 1}月${d.getDate()}日`, term, next: nx[2], daysToNext, slot,
     text: `今天是${d.getMonth() + 1}月${d.getDate()}日，正值「${term}」節氣${daysToNext <= 3 ? `，再過${daysToNext}天就是「${nx[2]}」` : ''}，現在是${slot}` };
 }
-const GREET_ASK = '今天想喝一杯什麼樣的茶呢？可以跟我說說你今天的狀態或心情';
+const GREET_ASK = '今天過得怎麼樣？想說什麼都可以，我在這裡聽你說';
 const GREET_BAN = /空氣|涼意|靜謐|微風|月色|養生|進補|潤燥|潤肺|補氣|補血|排毒|祛濕|去濕|降火|退火|驅寒|暖身|療|健康|功效|保健|下雨|晴|颱風|氣溫|度C|°/;
 async function companionGreeting() {
   const tm = teaMoment();
-  const key = 'yw-greet2-' + tm.date + tm.slot;   // 2：開場白規則改過，舊的快取不要再用
+  const key = 'yw-greet3-' + tm.date + tm.slot;   // 3：開場白改成先關心人（2026-11-19），舊的快取不要再用
   try { const c = sessionStorage.getItem(key); if (c) return c; } catch (e) {}
   const fallback = `${tm.slot === '深夜' ? '夜深了' : tm.slot + '好'}，${tm.term}時節，${GREET_ASK}`;
   const prompt = `你是「一握茶研所」的 AI 茶伴，正在跟剛打開對話的客人打招呼。
@@ -3567,7 +3671,7 @@ ${tm.text}。
     ]);
     let t = plainReply(noEmoji(raw)).replace(/\s*\n\s*/g, '').trim();
     if (!t || t.length > 90 || GREET_BAN.test(t.replace(GREET_ASK, ''))) return fallback;
-    if (!t.includes('今天想喝')) t += GREET_ASK;
+    if (!t.includes('今天過得')) t += GREET_ASK;
     try { sessionStorage.setItem(key, t); } catch (e) {}
     return t;
   } catch (e) { console.warn('[greet]', e); return fallback; }
@@ -3627,7 +3731,7 @@ async function startCompanion() {
   await typeIntoBubble('companion-log', bubble, text);
   chatBusy.companion = false;
   bubble.insertAdjacentHTML('beforeend', yiIcon('leaf', '#6EE7B7'));
-  renderChips(['想放鬆一下', '最近外食比較多', '想喝點溫暖的']);
+  renderChips(['今天有點累', '心情不太好', '想喝點溫暖的']);
 }
 
 function renderChips(options) {
