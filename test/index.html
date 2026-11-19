@@ -949,7 +949,7 @@ html.big-text .why-tea { font-size: 14px; }
         <!-- 平板／電腦（橫向畫面）：左邊文字、右邊動畫並排，不多佔高度，第一屏仍放得下三款茶 -->
         <div class="space-y-4 md:text-left">
         <div>
-          <h2 class="font-serif text-3xl lg:text-5xl font-bold drop-shadow-md">一握茶研所<span class="beta-tag">BETA50</span></h2>
+          <h2 class="font-serif text-3xl lg:text-5xl font-bold drop-shadow-md">一握茶研所<span class="beta-tag">BETA51</span></h2>
           <!-- 2026 三好 AI 競賽：給人方便、給人希望 -->
           <p class="font-serif text-tea-gold text-lg lg:text-2xl font-bold mt-3 leading-relaxed">隨時有人聽你說，<br class="md:hidden">每天都有一杯希望。</p>
           <p class="text-white/60 text-xs lg:text-base mt-2 leading-relaxed">在忙碌與疲憊的時候，AI 陪你說說話，<br>再為你泡一杯剛剛好的茶。</p>
@@ -2597,10 +2597,13 @@ function renderProductChips(suggestions) {
 }
 
 // 我們的初心：在品牌故事頁裡，進頁後捲到那一塊
+// 從別頁進來：換頁的同一刻就定位到「我們的初心」，不先露出品牌故事開頭再往下跳
+let viewAnchor = null;
 function goMission() {
   const onStory = document.getElementById('view-story').classList.contains('active');
-  if (!onStory) showView('story');
-  setTimeout(() => document.getElementById('mission').scrollIntoView({ behavior: onStory && !REDUCE_MOTION ? 'smooth' : 'auto', block: 'start' }), onStory ? 0 : 120);
+  if (onStory) { document.getElementById('mission').scrollIntoView({ behavior: REDUCE_MOTION ? 'auto' : 'smooth', block: 'start' }); return; }
+  viewAnchor = 'mission';
+  showView('story');
 }
 // 長輩模式：全站字體與按鈕放大，記在 localStorage（私密瀏覽等存不了也不影響使用）
 function setBigText(on) {
@@ -2732,7 +2735,18 @@ function showView(name, fromHistory, restoreY) {
   document.querySelectorAll('.yw-nav [data-nav]').forEach(b => b.classList.toggle('cur', b.dataset.nav === name));
 
   // 不使用 smooth，避免 iOS 同時處理捲動動畫與 view 重繪。
-  window.scrollTo(0, 0);
+  const anchor = !fromHistory && viewAnchor ? document.getElementById(viewAnchor) : null;
+  viewAnchor = null;
+  if (anchor && target.contains(anchor)) {
+    // 直接定位到指定區塊；那一塊不等原本的錯開延遲，跟著換頁一起出現
+    const d = anchor.style.animationDelay;
+    anchor.style.animationDelay = '0ms';
+    setTimeout(() => { anchor.style.animationDelay = d; }, 1500);
+    // 用 offsetTop 算位置（不受進場位移動畫影響），扣掉上方固定標題列的空間
+    let y = 0;
+    for (let el = anchor; el; el = el.offsetParent) y += el.offsetTop;
+    window.scrollTo(0, Math.max(0, y - (parseFloat(anchor.style.scrollMarginTop) || 96)));
+  } else window.scrollTo(0, 0);
   // 從返回回來的頁面，回到離開前的捲動位置
   if (fromHistory && restoreY) setTimeout(() => window.scrollTo(0, restoreY), 40);
 
